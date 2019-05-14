@@ -39,12 +39,18 @@
     <ClCompile Include="BoardWidget.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="NewGameDialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="QtChessGUI.h">
       <Filter>Header Files</Filter>
     </QtMoc>
     <QtMoc Include="BoardWidget.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="NewGameDialog.h">
       <Filter>Header Files</Filter>
     </QtMoc>
   </ItemGroup>
