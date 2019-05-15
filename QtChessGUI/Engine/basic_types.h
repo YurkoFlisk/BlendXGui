@@ -232,7 +232,7 @@ namespace BlendXChess
 
 	constexpr inline int8_t rankFromAN(char rankAN) noexcept
 	{
-		return (int8_t)(rankAN - 'a');
+		return (int8_t)(rankAN - '1');
 	}
 
 	constexpr inline char rankToAN(int8_t rank) noexcept

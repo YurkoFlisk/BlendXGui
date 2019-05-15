@@ -127,9 +127,9 @@ bool Game::DoMove(Move move)
 		return false;
 	}
 	// If it's legal, update game info and state
-	std::stringstream positionFEN;
-	pos.writeFEN(positionFEN, true);
-	++positionRepeats[positionFEN.str()];
+	if (pos.gamePly - 1 != gameHistory.size())
+		gameHistory.erase(gameHistory.begin() + pos.gamePly - 1, gameHistory.end());
+	++positionRepeats[getPositionFEN(true)];
 	gameHistory.push_back(GHRecord{ move, prevState, moveStr });
 	updateGameState();
 	return true;
@@ -164,14 +164,35 @@ bool Game::DoMove(const std::string& moveStr, MoveFormat moveFormat)
 //============================================================
 bool Game::UndoMove(void)
 {
-	// If there wew no moves since start/set position, there's nothing to undo
-	if (gameHistory.empty())
+	// If there were no moves since start/set position (or we rolled
+	// back there through previous undos), there's nothing to undo
+	if (pos.gamePly == 0)
 		return false;
 	// Try to undo (there should be no errors there, but it's good to check if possible)
-	if (!pos.UndoMove(gameHistory.back().move, gameHistory.back().prevState))
+	GHRecord& prevRec = gameHistory[pos.gamePly - 1];
+	if (!pos.UndoMove(prevRec.move, prevRec.prevState))
 		return false;
 	// If succeded, update game info and state
-	gameHistory.pop_back();
+	--positionRepeats[getPositionFEN(true)];
+	updateGameState();
+	return true;
+}
+
+//============================================================
+// Redo the last undone move. Return false in case of error or
+// if there's nothing to redo. Note that redo buffer is
+// cleared after doing (through DoMove) any new move
+//============================================================
+bool Game::RedoMove(void)
+{
+	// Check whether there are moves to redo
+	if (gameHistory.empty() || pos.gamePly == gameHistory.size())
+		return false;
+	// Try to redo (there should be no errors there, but it's good to check if possible)
+	if (!pos.DoMove(gameHistory[pos.gamePly].move))
+		return false;
+	// If succeded, update game info and state
+	++positionRepeats[getPositionFEN(true)];
 	updateGameState();
 	return true;
 }
@@ -218,12 +239,14 @@ void Game::loadGame(std::istream& istr, MoveFormat fmt)
 //============================================================
 // Write game to the given stream in SAN notation
 //============================================================
-void Game::writeGame(std::ostream& ostr, MoveFormat fmt)
+void Game::writeGame(std::ostream& ostr, MoveFormat fmt) const
 {
 	// Write saved SAN representations of moves along with move number indicators
 	for (int ply = 0; ply < gameHistory.size(); ++ply)
 	{
-		if ((ply & 1) == 0)
+		if (ply == 0 && (pos.gamePly & 1) == (pos.turn == WHITE))
+			ostr << "1...";
+		else if ((ply & 1) == 0)
 			ostr << ply / 2 + 1 << '.';
 		ostr << ' ' << gameHistory[ply].moveStr[fmt];
 		if (ply & 1)

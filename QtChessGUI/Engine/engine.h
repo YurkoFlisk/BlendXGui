@@ -65,16 +65,17 @@ namespace BlendXChess
 		inline Move moveFromStr(const std::string& moveStr, MoveFormat fmt);
 		// Convert move to given string format
 		inline std::string moveToStr(Move move, MoveFormat fmt) const;
-		// Doing and undoing a move
+		// Doing and undoing/redoing a move
 		// These are not well optimized and are being interface for external calls
 		// Engine internals (eg in search) use doMove and undoMove instead
 		bool DoMove(Move);
 		bool DoMove(const std::string&, MoveFormat);
 		bool UndoMove(void);
+		bool RedoMove(void);
 		// Load game from the given stream in SAN notation
 		void loadGame(std::istream&, MoveFormat fmt = FMT_SAN);
 		// Write game to the given stream in SAN notation
-		void writeGame(std::ostream&, MoveFormat fmt = FMT_SAN);
+		void writeGame(std::ostream&, MoveFormat fmt = FMT_SAN) const;
 		// Load position from a given stream in FEN notation (bool parameter says whether to omit move counters)
 		void loadFEN(std::istream&, bool = false);
 		// Load position from a given string in FEN notation (bool parameter says whether to omit move counters)
@@ -113,7 +114,10 @@ namespace BlendXChess
 		GameState gameState;
 		// Cause of draw game state (valid only if gameState == GS_DRAW)
 		DrawCause drawCause;
-		// Game history, which consists of all moves made from the starting position
+		// Game history index (in case of undoing moves, it will point to currently selected 'last' move,
+		// and if any move will be done in DoMove, all moves after this index will be flushed)
+		// int gameHistoryIdx; // Deprecated due to use of pos.gamePly
+		// Game history, which consists of all moves made from the starting position, including last undone ones
 		std::vector<GHRecord> gameHistory;
 		// Position (stored in reduced FEN) repetition count, for handling threefold repetition draw rule
 		std::unordered_map<std::string, int> positionRepeats;

@@ -821,7 +821,7 @@ bool Position::UndoMove(Move move, const PositionInfo& prevInfo)
 		undoMove(move, prevInfo);
 		generateLegalMovesEx(legalMoves);
 		if (std::find_if(legalMoves.begin(), legalMoves.end(), [move](const Move& elem) {
-			return elem == move; }) == legalMoves.end())
+			return elem == move; }) == legalMoves.end() || prevInfo.keyZobrist != info.keyZobrist)
 			throw std::exception(); // Just to avoid duplicating code of catch block
 	}
 	// There may have been an exception due to uncheked

@@ -3,10 +3,10 @@
 using namespace BlendXChess;
 
 BoardWidget::BoardWidget(QWidget* parent)
-	: QWidget(parent), m_tileSize(64), whiteDown(true), m_selSq(Sq::NONE),
+	: QWidget(parent), m_tileSize(64), m_whiteDown(true), m_selSq(Sq::NONE),
 	m_borderWidth(30)
 {
-	game.reset();
+	m_game.reset();
 	m_boardLUCorner = QPoint(m_borderWidth, m_borderWidth);
 	m_tileQSize = QSizeF(m_tileSize, m_tileSize);
 	m_boardSize = QSize(FILE_CNT * m_tileSize, RANK_CNT * m_tileSize);
@@ -39,20 +39,38 @@ void BoardWidget::restart(Side userSide)
 {
 	if (userSide == NULL_COLOR)
 		userSide = Side(QDateTime::currentDateTime().time().msec() & 1);
-	whiteDown = (userSide == WHITE);
-	game.reset();
+	m_whiteDown = (userSide == WHITE);
+	m_game.reset();
+}
+
+const BlendXChess::Game& BoardWidget::game(void) const
+{
+	return m_game;
 }
 
 void BoardWidget::undo(void)
 {
-	if (game.UndoMove())
+	if (m_game.UndoMove())
 		repaint();
 }
 
 void BoardWidget::redo(void)
 {
-	//if (game.RedoMove())
-	//	repaint();
+	if (m_game.RedoMove())
+		repaint();
+}
+
+void BoardWidget::loadPGN(std::istream& inGame)
+{
+	try
+	{
+		m_game.loadGame(inGame);
+	}
+	catch (const std::exception & exc)
+	{
+		QMessageBox::critical(this, "Error", exc.what());
+		return;
+	}
 }
 
 void BoardWidget::paintEvent(QPaintEvent* eventInfo)
@@ -86,10 +104,10 @@ void BoardWidget::paintEvent(QPaintEvent* eventInfo)
 		);
 	}
 	// Draw turn indicator
-	m_svgPieces[makePiece(game.getPosition().getTurn(), KING)].render(
+	m_svgPieces[makePiece(m_game.getPosition().getTurn(), KING)].render(
 		&painter, QRect(0, 0, m_borderWidth, m_borderWidth));
 	// Draw the board
-	const Position& board = game.getPosition();
+	const Position& board = m_game.getPosition();
 	for (int row = 0; row < 8; ++row) // NOT rank
 		for (int col = 0; col < 8; ++col) // NOT file
 		{
@@ -135,7 +153,7 @@ void BoardWidget::mousePressEvent(QMouseEvent* eventInfo)
 			}
 			return;
 		}
-		const Position& board = game.getPosition();
+		const Position& board = m_game.getPosition();
 		if (m_selSq == Sq::NONE)
 		{
 			if (board[sq] != PIECE_NULL)
@@ -149,7 +167,7 @@ void BoardWidget::mousePressEvent(QMouseEvent* eventInfo)
 			Move candidateMove = Move(m_selSq, sq);
 			// NOT just DoMove candidateMove, since it (NOW) expects correct
 			// move flags, which we haven't set
-			if (game.DoMove(candidateMove.toUCI(), FMT_UCI))
+			if (m_game.DoMove(candidateMove.toUCI(), FMT_UCI))
 				m_selSq = Sq::NONE;
 			else if (board[sq] != PIECE_NULL)
 				m_selSq = sq;
@@ -166,12 +184,12 @@ void BoardWidget::mousePressEvent(QMouseEvent* eventInfo)
 
 int BoardWidget::fileFromCol(int col) const
 {
-	return whiteDown ? col : FILE_CNT - 1 - col;
+	return m_whiteDown ? col : FILE_CNT - 1 - col;
 }
 
 int BoardWidget::rankFromRow(int row) const
 {
-	return whiteDown ? RANK_CNT - 1 - row : row;
+	return m_whiteDown ? RANK_CNT - 1 - row : row;
 }
 
 Square BoardWidget::squareByPoint(QPoint point) const
@@ -188,7 +206,7 @@ Square BoardWidget::squareByPoint(QPoint point) const
 Square BoardWidget::squareByTileCoord(int row, int col) const
 {
 	int rank, file;
-	if (whiteDown)
+	if (m_whiteDown)
 		rank = RANK_CNT - 1 - row, file = col;
 	else
 		rank = row, file = FILE_CNT - 1 - col;
@@ -203,7 +221,7 @@ std::pair<int, int> BoardWidget::tileCoordBySquare(Square sq) const
 		rank = sq.rank(),
 		file = sq.file();
 	int row, col;
-	if (whiteDown)
+	if (m_whiteDown)
 		row = 7 - rank, col = file;
 	else
 		row = rank, col = 7 - file;
