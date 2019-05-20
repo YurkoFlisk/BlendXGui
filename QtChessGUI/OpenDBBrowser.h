@@ -12,6 +12,7 @@ public:
 	~OpenDBBrowser();
 	bool isOK(void) const;
 	int getSelectedGameId(void) const;
+	void resizeEvent(QResizeEvent*) override;
 private:
 	void sViewClicked(const QModelIndex& index);
 
@@ -19,4 +20,5 @@ private:
 	int m_selectedGameId;
 	QString qString;
 	QSqlQueryModel* model;
+	QTableView* view;
 };

@@ -57,7 +57,7 @@ namespace BlendXChess
 		inline const Position& getPosition(void) const;
 		// Clear game state
 		void clear(void);
-		// Reset game (stops search if there's any)
+		// Reset game
 		void reset(void);
 		// Update game state
 		void updateGameState(void);
@@ -84,6 +84,8 @@ namespace BlendXChess
 		void writeFEN(std::ostream&, bool = false) const;
 		// Get FEN representation of current position, possibly omitting last 2 counters
 		inline std::string getPositionFEN(bool = false) const;
+		// Get game moves in SAN notation
+		inline std::string getGame(void) const;
 		// Redirections to Position class
 		template<bool MG_LEGAL = false>
 		inline int perft(Depth);
@@ -167,6 +169,13 @@ namespace BlendXChess
 	inline std::string Game::getPositionFEN(bool omitCounters) const
 	{
 		return pos.getFEN(omitCounters);
+	}
+
+	inline std::string Game::getGame(void) const
+	{
+		std::ostringstream ss;
+		writeGame(ss);
+		return ss.str();
 	}
 
 	template<bool MG_LEGAL>

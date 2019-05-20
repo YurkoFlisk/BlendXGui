@@ -42,7 +42,16 @@
     <ClCompile Include="NewGameDialog.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DBBrowser.cpp">
+    <ClCompile Include="OpenDBBrowser.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SaveDBBrowser.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="UCIEngine.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="EngineParams.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -56,7 +65,13 @@
     <QtMoc Include="NewGameDialog.h">
       <Filter>Header Files</Filter>
     </QtMoc>
-    <QtMoc Include="DBBrowser.h">
+    <QtMoc Include="OpenDBBrowser.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="SaveDBBrowser.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="EngineParams.h">
       <Filter>Header Files</Filter>
     </QtMoc>
   </ItemGroup>
@@ -69,5 +84,10 @@
     <QtRcc Include="QtChessGUI.qrc">
       <Filter>Resource Files</Filter>
     </QtRcc>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="UCIEngine.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

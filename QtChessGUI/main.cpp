@@ -3,8 +3,12 @@
 
 int main(int argc, char *argv[])
 {
-	QApplication a(argc, argv);
-	QtChessGUI w;
-	w.show();
-	return a.exec();
+	QApplication app(argc, argv);
+	QFile file("defaultStyle.qss");
+	file.open(QFile::ReadOnly);
+	QString styleSheet = QLatin1String(file.readAll());
+	app.setStyleSheet(styleSheet);
+	QtChessGUI window;
+	window.show();
+	return app.exec();
 }

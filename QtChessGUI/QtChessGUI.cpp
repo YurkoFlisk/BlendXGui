@@ -1,6 +1,8 @@
 #include <fstream>
 #include <sstream>
 #include "QtChessGUI.h"
+#include "OpenDBBrowser.h"
+#include "SaveDBBrowser.h"
 #include "Engine/engine.h"
 
 QtChessGUI::QtChessGUI(QWidget* parent)
@@ -12,10 +14,8 @@ QtChessGUI::QtChessGUI(QWidget* parent)
 	db.setUserName("root");
 	db.setPassword("LamboV3n3n0");
 	if (!db.open())
-	{
-		QMessageBox::warning(this, "Error", "Could not connect to database: " + db.lastError().text());
-		return;
-	}
+		QMessageBox::warning(this, "Error", "Could not connect to database: "
+			+ db.lastError().text());
 
 	BlendXChess::Game::initialize();
 	m_newDialog = new NewGameDialog(this);
@@ -70,6 +70,11 @@ void QtChessGUI::createActions(void)
 	m_redoAction->setShortcut(QKeySequence::Redo);
 	connect(m_redoAction, &QAction::triggered, this, &QtChessGUI::sRedo);
 
+	m_closeAction = new QAction("&Close");
+	m_closeAction->setToolTip("Close current game");
+	m_closeAction->setShortcut(QKeySequence::Close);
+	connect(m_closeAction, &QAction::triggered, this, &QtChessGUI::sClose);
+
 	m_quitAction = new QAction("&Quit");
 	m_quitAction->setToolTip("Quit the program");
 	m_quitAction->setShortcut(QKeySequence::Quit);
@@ -85,6 +90,7 @@ void QtChessGUI::createMenus(void)
 	// File menu
 	m_fileMenu = menuBar()->addMenu("&File");
 	m_fileMenu->addAction(m_newAction);
+	m_fileMenu->addAction(m_closeAction);
 
 	QMenu* openSubmenu = m_fileMenu->addMenu("&Open");
 	openSubmenu->addAction(m_openFromFileAction);
@@ -105,10 +111,43 @@ void QtChessGUI::createMenus(void)
 	m_aboutMenu->addAction(m_aboutAction);
 }
 
+QString QtChessGUI::getEnginePath(int id)
+{
+	QSqlQuery query;
+	query.prepare("SELECT path FROM engine_players WHERE id = ?");
+	query.addBindValue(id);
+	if (!query.exec() || !query.first())
+		throw std::runtime_error("Error reading engine path from database: "
+			+ db.lastError().text().toStdString());
+	return query.value("path").toString();
+}
+
 void QtChessGUI::sNewGame(void)
 {
-	if (m_newDialog->exec() == QDialog::Accepted)
-		m_boardWidget->restart(m_newDialog->getSelectedSide());
+	if (m_newDialog->exec() != QDialog::Accepted)
+		return;
+	try
+	{
+		if (m_newDialog->pvp())
+		{
+			m_boardWidget->startPVP();
+		}
+		else if (m_newDialog->withEngine())
+		{
+			QString enginePath = getEnginePath(m_newDialog->getSelectedEngineId());
+			m_boardWidget->startWithEngine(m_newDialog->getSelectedSide(), enginePath);
+		}
+		else
+		{
+			QString whiteEnginePath = getEnginePath(m_newDialog->getSelectedWhiteEngineId());
+			QString blackEnginePath = getEnginePath(m_newDialog->getSelectedWhiteEngineId());
+			m_boardWidget->startEngineVsEngine(whiteEnginePath, blackEnginePath);
+		}
+	}
+	catch (const std::runtime_error& err)
+	{
+		QMessageBox::critical(this, "Error", err.what());
+	}
 }
 
 void QtChessGUI::sAbout(void)
@@ -123,10 +162,10 @@ void QtChessGUI::sQuit(void)
 
 void QtChessGUI::sOpenDB(void)
 {
-	OpenDBBrowser* m_DBBrowser = new OpenDBBrowser(nullptr);
-	if (m_DBBrowser->exec() == QDialog::Accepted)
+	OpenDBBrowser* dbBrowser = new OpenDBBrowser(nullptr);
+	if (dbBrowser->exec() == QDialog::Accepted)
 	{
-		int id = m_DBBrowser->getSelectedGameId();
+		int id = dbBrowser->getSelectedGameId();
 		QSqlQuery query;
 		query.prepare("SELECT PGN FROM games WHERE id = ?;");
 		query.addBindValue(id);
@@ -137,7 +176,10 @@ void QtChessGUI::sOpenDB(void)
 			return;
 		}
 		std::istringstream iss(query.value("PGN").toString().toStdString());
-		m_boardWidget->loadPGN(iss);
+		if (m_boardWidget->loadPGN(iss))
+			statusBar()->showMessage("Game loaded successfully");
+		else
+			statusBar()->showMessage("Error loading game");
 	}
 }
 
@@ -147,12 +189,17 @@ void QtChessGUI::sOpenFile(void)
 	if (path.isEmpty())
 		return;
 	std::ifstream inGame(path.toStdString());
-	m_boardWidget->loadPGN(inGame);
+	if (m_boardWidget->loadPGN(inGame))
+		statusBar()->showMessage("Game loaded successfully");
+	else
+		statusBar()->showMessage("Error loading game");
 }
 
 void QtChessGUI::sSaveDB(void)
 {
-
+	SaveDBBrowser* dbBrowser = new SaveDBBrowser(this);
+	if (dbBrowser->exec() == QDialog::Accepted)
+		statusBar()->showMessage("Game saved successfully");
 }
 
 void QtChessGUI::sSaveFile(void)
@@ -163,6 +210,13 @@ void QtChessGUI::sSaveFile(void)
 		return;
 	std::ofstream outGame(savePath.toStdString());
 	m_boardWidget->game().writeGame(outGame);
+	statusBar()->showMessage("Game saved successfully");
+}
+
+void QtChessGUI::sClose(void)
+{
+	m_boardWidget->closeGame();
+	statusBar()->showMessage("Game closed");
 }
 
 void QtChessGUI::sUndo(void)

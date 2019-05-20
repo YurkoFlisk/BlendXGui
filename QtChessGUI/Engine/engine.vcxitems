@@ -19,11 +19,13 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)engine.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)movelist.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)position.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)ucioption.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="$(MSBuildThisFileDirectory)bitboard.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)engine.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)movelist.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)position.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)ucioption.cpp" />
   </ItemGroup>
 </Project>

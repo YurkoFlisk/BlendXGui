@@ -1,4 +1,4 @@
-#include "DBBrowser.h"
+#include "OpenDBBrowser.h"
 #include <fstream>
 
 OpenDBBrowser::OpenDBBrowser(QWidget* parent)
@@ -17,14 +17,12 @@ OpenDBBrowser::OpenDBBrowser(QWidget* parent)
 		return;
 	}
 
-	QTableView* view = new QTableView;
-	view->setSelectionBehavior(QAbstractItemView::SelectRows);
+	view = new QTableView;
 	view->setModel(model);
 	view->hideColumn(0);
 	view->hideColumn(1);
 	view->hideColumn(2);
-	view->hideColumn(3);
-	view->hideColumn(model->record().indexOf("PGN"));
+	view->setSelectionBehavior(QAbstractItemView::SelectRows);
 	connect(view, &QTableView::doubleClicked, this, &OpenDBBrowser::sViewClicked);
 
 	QVBoxLayout* mainLayout = new QVBoxLayout;
@@ -32,6 +30,12 @@ OpenDBBrowser::OpenDBBrowser(QWidget* parent)
 	setLayout(mainLayout);
 
 	ok = true;
+}
+
+void OpenDBBrowser::resizeEvent(QResizeEvent* eventInfo)
+{
+	QDialog::resizeEvent(eventInfo);
+	view->horizontalHeader()->setStretchLastSection(true);
 }
 
 OpenDBBrowser::~OpenDBBrowser()

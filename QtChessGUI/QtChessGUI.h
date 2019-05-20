@@ -1,7 +1,7 @@
 #pragma once
 #include "BoardWidget.h"
 #include "NewGameDialog.h"
-#include "DBBrowser.h"
+#include <QtSql>
 
 class QtChessGUI : public QMainWindow
 {
@@ -10,9 +10,11 @@ class QtChessGUI : public QMainWindow
 public:
 	QtChessGUI(QWidget *parent = Q_NULLPTR);
 	~QtChessGUI(void);
+	inline BoardWidget* getBoardWidget(void) const;
 private:
 	void createActions(void);
 	void createMenus(void);
+	QString getEnginePath(int id);
 	// Slots
 	void sNewGame(void);
 	void sAbout(void);
@@ -21,6 +23,7 @@ private:
 	void sOpenFile(void);
 	void sSaveDB(void);
 	void sSaveFile(void);
+	void sClose(void);
 	void sUndo(void);
 	void sRedo(void);
 	// Members
@@ -33,9 +36,15 @@ private:
 	QAction* m_openFromDBAction;
 	QAction* m_saveToDBAction;
 	QAction* m_saveToFileAction;
+	QAction* m_closeAction;
 	QAction* m_undoAction;
 	QAction* m_redoAction;
 	QAction* m_quitAction;
 	QAction* m_aboutAction;
 	QSqlDatabase db;
 };
+
+inline BoardWidget* QtChessGUI::getBoardWidget(void) const
+{
+	return m_boardWidget;
+}

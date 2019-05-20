@@ -4,9 +4,8 @@ using namespace BlendXChess;
 
 BoardWidget::BoardWidget(QWidget* parent)
 	: QWidget(parent), m_tileSize(64), m_whiteDown(true), m_selSq(Sq::NONE),
-	m_borderWidth(30)
+	m_borderWidth(30), m_userSide(NULL_COLOR), m_gameType(GameType::None)
 {
-	m_game.reset();
 	m_boardLUCorner = QPoint(m_borderWidth, m_borderWidth);
 	m_tileQSize = QSizeF(m_tileSize, m_tileSize);
 	m_boardSize = QSize(FILE_CNT * m_tileSize, RANK_CNT * m_tileSize);
@@ -14,10 +13,12 @@ BoardWidget::BoardWidget(QWidget* parent)
 		m_boardSize.width() + 2 * m_borderWidth,
 		m_boardSize.height() + 2 * m_borderWidth);
 	m_borderLength = m_boardSize.width();
+
 	m_whiteTileImage.load("Images/Board/DefaultTileWhite.png");
 	m_blackTileImage.load("Images/Board/DefaultTileBlack.png");
 	m_whiteTileImage = m_whiteTileImage.scaled(m_tileQSize.toSize());
 	m_blackTileImage = m_blackTileImage.scaled(m_tileQSize.toSize());
+
 	m_svgPieces[W_PAWN].load(QString("Images/Pieces/Cburnett/whitePawn.svg"));
 	m_svgPieces[W_KNIGHT].load(QString("Images/Pieces/Cburnett/whiteKnight.svg"));
 	m_svgPieces[W_BISHOP].load(QString("Images/Pieces/Cburnett/whiteBishop.svg"));
@@ -30,22 +31,50 @@ BoardWidget::BoardWidget(QWidget* parent)
 	m_svgPieces[B_ROOK].load(QString("Images/Pieces/Cburnett/blackRook.svg"));
 	m_svgPieces[B_QUEEN].load(QString("Images/Pieces/Cburnett/blackQueen.svg"));
 	m_svgPieces[B_KING].load(QString("Images/Pieces/Cburnett/blackKing.svg"));
+
+	startPVP();
 }
 
-BoardWidget::~BoardWidget()
+BoardWidget::~BoardWidget(void)
 {}
-
-void BoardWidget::restart(Side userSide)
-{
-	if (userSide == NULL_COLOR)
-		userSide = Side(QDateTime::currentDateTime().time().msec() & 1);
-	m_whiteDown = (userSide == WHITE);
-	m_game.reset();
-}
 
 const BlendXChess::Game& BoardWidget::game(void) const
 {
 	return m_game;
+}
+
+void BoardWidget::closeGame(void)
+{
+	m_game.clear();
+	m_gameType = GameType::None;
+}
+
+void BoardWidget::startPVP(void)
+{
+	closeGame();
+	m_gameType = GameType::PlayerVsPlayer;
+	m_whiteDown = true;
+	startGame();
+}
+
+void BoardWidget::startWithEngine(BlendXChess::Side userSide, QString enginePath)
+{
+	closeGame();
+	if (userSide == NULL_COLOR)
+		userSide = Side(QDateTime::currentDateTime().time().msec() & 1); // random
+	m_gameType = GameType::PlayerVsEngine;
+	m_userSide = userSide;
+	m_whiteDown = (userSide == WHITE);
+	launchEngine(opposite(userSide), enginePath);
+}
+
+void BoardWidget::startEngineVsEngine(QString whiteEnginePath, QString blackEnginePath)
+{
+	closeGame();
+	m_gameType = GameType::EngineVsEngine;
+	m_whiteDown = true;
+	launchEngine(WHITE, whiteEnginePath);
+	launchEngine(BLACK, blackEnginePath);
 }
 
 void BoardWidget::undo(void)
@@ -60,24 +89,28 @@ void BoardWidget::redo(void)
 		repaint();
 }
 
-void BoardWidget::loadPGN(std::istream& inGame)
+bool BoardWidget::loadPGN(std::istream& inGame)
 {
 	try
 	{
 		m_game.loadGame(inGame);
+		return true;
 	}
 	catch (const std::exception & exc)
 	{
 		QMessageBox::critical(this, "Error", exc.what());
-		return;
+		return false;
 	}
 }
 
 void BoardWidget::paintEvent(QPaintEvent* eventInfo)
 {
-	QWidget::paintEvent(eventInfo);
+	QStyleOption opt;
+	opt.init(this);
 	QPainter painter;
 	painter.begin(this);
+	painter.setRenderHint(QPainter::HighQualityAntialiasing);
+	style()->drawPrimitive(QStyle::PE_Widget, &opt, &painter, this);
 	// Draw the border
 	for (int col = 0; col < 8; ++col)
 	{
@@ -162,7 +195,8 @@ void BoardWidget::mousePressEvent(QMouseEvent* eventInfo)
 				repaint();
 			}
 		}
-		else
+		else if (m_gameType == GameType::PlayerVsPlayer
+			|| m_userSide == m_game.getPosition().getTurn())
 		{
 			Move candidateMove = Move(m_selSq, sq);
 			// NOT just DoMove candidateMove, since it (NOW) expects correct
@@ -174,6 +208,11 @@ void BoardWidget::mousePressEvent(QMouseEvent* eventInfo)
 			else
 				m_selSq = Sq::NONE;
 			repaint();
+			if (auto gs = m_game.getGameState(); gs != GameState::ACTIVE)
+				QMessageBox::information(this, "Game result",
+					gs == GameState::WHITE_WIN ? "White won" :
+					gs == GameState::BLACK_WIN ? "Black won" :
+					gs == GameState::DRAW ? "Draw" : "Undefined");
 		}
 	}
 	else if (eventInfo->button() == Qt::MouseButton::RightButton)
@@ -190,6 +229,83 @@ int BoardWidget::fileFromCol(int col) const
 int BoardWidget::rankFromRow(int row) const
 {
 	return m_whiteDown ? RANK_CNT - 1 - row : row;
+}
+
+void BoardWidget::startGame(void)
+{
+	// TODO sendNewGame should be followed by isready-readyok as potentially long operation
+	m_game.reset();
+	if (m_gameType == GameType::PlayerVsEngine)
+	{
+		m_engineProc[opposite(m_userSide)].sendNewGame();
+		if (m_userSide == BLACK)
+		{
+			m_engineProc[WHITE].sendPosition("startpos");
+			m_engineProc[WHITE].sendGo();
+		}
+	}
+	else if (m_gameType == GameType::EngineVsEngine)
+	{
+		m_engineProc[WHITE].sendNewGame();
+		m_engineProc[BLACK].sendNewGame();
+		m_engineProc[WHITE].sendPosition("startpos");
+		m_engineProc[WHITE].sendGo();
+	}
+}
+
+void BoardWidget::launchEngine(BlendXChess::Side side, QString path)
+{
+	if (side != WHITE && side != BLACK)
+		return;
+	UCIEngine& engine = m_engineProc[side];
+	engine.reset(path, [this](auto&&... params) {eventCallback(params...); });
+}
+
+void BoardWidget::loadEngineOptions(UCIEngine* engine)
+{
+	EngineParamsDialog* engineParamsDialog =
+		new EngineParamsDialog(this, engine->getOptions());
+	if (engineParamsDialog->exec() != QDialog::Accepted)
+		return;
+	for (const auto& [optName, _opt_unused] : engine->getOptions())
+		engine->setOption(optName, engineParamsDialog->getOptionValue(optName));
+	engine->sendIsReady();
+}
+
+void BoardWidget::eventCallback(UCIEngine* sender, const UCIEventInfo* eventInfo)
+{
+	Side senderSide;
+	if (sender == &m_engineProc[WHITE])
+		senderSide = WHITE;
+	else if (sender == &m_engineProc[BLACK])
+		senderSide = BLACK;
+	else
+		return; // Unknown sender
+	switch (eventInfo->type)
+	{
+	case UCIEventInfo::Type::UciOk:
+		loadEngineOptions(sender);
+		break;
+	case UCIEventInfo::Type::ReadyOk:
+		if (m_gameType == GameType::PlayerVsEngine)
+			startGame(); // Could be only one engine, so start immediately
+		else if (m_gameType == GameType::EngineVsEngine)
+		{ // Check that both engines are loaded before starting game
+			if (m_engineProc[WHITE].getState() == UCIEngine::State::Ready &&
+				m_engineProc[BLACK].getState() == UCIEngine::State::Ready)
+				startGame();
+		}
+		break;
+	case UCIEventInfo::Type::BestMove:
+		if (senderSide != m_game.getPosition().getTurn())
+			return;
+		m_game.DoMove(eventInfo->bestMove, FMT_UCI);
+		update();
+		break;
+	case UCIEventInfo::Type::Info:
+		// TEMPORARILY EMPTY
+		break;
+	}
 }
 
 Square BoardWidget::squareByPoint(QPoint point) const

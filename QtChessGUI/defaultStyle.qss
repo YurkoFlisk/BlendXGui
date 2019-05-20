@@ -1,0 +1,15 @@
+QMainWindow {
+	background-color: rgb(130, 140, 140);
+}
+QDialog {
+	background-color: rgb(160, 160, 160);
+}
+QMenuBar {
+    background-color: lightgray;
+}
+BoardWidget {
+	background-color: darkgray;
+}
+QMenu {
+	background-color: gray;
+}
