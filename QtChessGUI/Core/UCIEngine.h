@@ -1,7 +1,7 @@
 #pragma once
 #include <QtCore>
-#include "Engine/ucioption.h"
-#include "Engine/engine.h"
+#include "../Engine/ucioption.h"
+#include "../Engine/engine.h"
 
 struct InfoDetails
 {
@@ -47,7 +47,7 @@ public:
 	void sendPosition(const std::string& positionFEN);
 	void sendNewGame(void);
 	void sendIsReady(void);
-	void sendGo(void);
+	void sendGo(int depth = 10);
 	void sendStop(void);
 private:
 	// Reading various event info from stream

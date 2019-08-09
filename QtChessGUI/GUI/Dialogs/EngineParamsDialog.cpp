@@ -1,5 +1,5 @@
 #include <QtWidgets>
-#include "EngineParams.h"
+#include "EngineParamsDialog.h"
 
 EngineParamsDialog::EngineParamsDialog(QWidget *parent,
 	const UCIEngine::Options& options)
@@ -14,10 +14,10 @@ EngineParamsDialog::EngineParamsDialog(QWidget *parent,
 		*spinLayout = new QFormLayout,
 		*stringLayout = new QFormLayout;
 	QGroupBox
-		*checkGB = new QGroupBox,
-		*comboGB = new QGroupBox,
-		*spinGB = new QGroupBox,
-		*stringGB = new QGroupBox;
+		*checkGB = new QGroupBox("Check options"),
+		*comboGB = new QGroupBox("Combo options"),
+		*spinGB = new QGroupBox("Spin options"),
+		*stringGB = new QGroupBox("String options");
 	QCheckBox* checkEdit;
 	QComboBox* comboEdit;
 	QSpinBox* spinEdit;
@@ -25,7 +25,7 @@ EngineParamsDialog::EngineParamsDialog(QWidget *parent,
 	QWidget* editWidget;
 	for (const auto& [name, option] : options)
 	{
-		const QString qname = QString::fromStdString(name);
+		const QString qname = QString::fromStdString(name) + ":";
 		switch (option.getType())
 		{
 		case UciOption::Type::Check:
@@ -61,11 +61,18 @@ EngineParamsDialog::EngineParamsDialog(QWidget *parent,
 	spinGB->setLayout(spinLayout);
 	stringGB->setLayout(stringLayout);
 
-	QHBoxLayout* mainLayout = new QHBoxLayout;
-	mainLayout->addWidget(checkGB);
-	mainLayout->addWidget(comboGB);
-	mainLayout->addWidget(spinGB);
-	mainLayout->addWidget(stringGB);
+	QHBoxLayout* buttonsLayout = new QHBoxLayout;
+	buttonsLayout->addWidget(okButton);
+	buttonsLayout->addWidget(cancelButton);
+
+	QHBoxLayout* optionsLayout = new QHBoxLayout;
+	optionsLayout->addWidget(checkGB);
+	optionsLayout->addWidget(comboGB);
+	optionsLayout->addWidget(spinGB);
+	optionsLayout->addWidget(stringGB);
+	QVBoxLayout* mainLayout = new QVBoxLayout;
+	mainLayout->addLayout(optionsLayout);
+	mainLayout->addLayout(buttonsLayout);
 	setLayout(mainLayout);
 
 	if (checkLayout->isEmpty())

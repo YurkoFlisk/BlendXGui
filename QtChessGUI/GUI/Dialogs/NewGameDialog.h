@@ -15,6 +15,7 @@ public:
 	int getSelectedEngineId(void) const; // Valid only for withEngine
 	int getSelectedWhiteEngineId(void) const; // Valid only for engineVsEngine
 	int getSelectedBlackEngineId(void) const; // Valid only for engineVsEngine
+	void refresh(void);
 	inline bool pvp(void) const;
 	inline bool withEngine(void) const;
 	inline bool engineVsEngine(void) const;

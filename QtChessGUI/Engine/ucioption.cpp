@@ -100,7 +100,7 @@ void UciOption::readDefinition(std::istream& istr)
 	// Note that UCI specification DOESN'T clearly state the order of
 	// option infos (type, default value etc), so here there are no assumptions
 	// about it. Otherwise, we could just parse defaultValue right after reading it
-	setValue(defaultValue, defaultStr);
+	setValueFromString(defaultValue, defaultStr);
 	value = defaultValue;
 }
 
@@ -152,7 +152,7 @@ void UciOption::setValue(ValueType& valInto, const ValueType& val)
 	}
 	else
 		throw std::runtime_error("Can't set value for current option type");
-	value = val;
+	valInto = val;
 }
 
 void UciOption::setValueFromString(ValueType& val, const std::string& str)

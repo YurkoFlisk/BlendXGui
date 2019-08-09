@@ -1,9 +1,13 @@
 #include <fstream>
 #include <sstream>
 #include "QtChessGUI.h"
+#include "BoardWidget.h"
+#include "EngineInfoWidget.h"
 #include "OpenDBBrowser.h"
-#include "SaveDBBrowser.h"
+#include "EnginesBrowser.h"
 #include "Engine/engine.h"
+#include "Dialogs/NewGameDialog.h"
+#include "Dialogs/SaveDBBrowser.h"
 
 QtChessGUI::QtChessGUI(QWidget* parent)
 	: QMainWindow(parent)
@@ -14,16 +18,22 @@ QtChessGUI::QtChessGUI(QWidget* parent)
 	db.setUserName("root");
 	db.setPassword("LamboV3n3n0");
 	if (!db.open())
-		QMessageBox::warning(this, "Error", "Could not connect to database: "
+		QMessageBox::critical(this, "Error", "Could not connect to database: "
 			+ db.lastError().text());
+	/*if (!db.driver()->hasFeature(QSqlDriver::Transactions))
+		QMessageBox::warning(this, "Error",
+			"Your database doesn't support transactions");*/
 
 	BlendXChess::Game::initialize();
+
 	m_newDialog = new NewGameDialog(this);
-	m_boardWidget = new BoardWidget(this);
+	m_engineInfoWidget = new EngineInfoWidget(this);
+	m_boardWidget = new BoardWidget(this, m_engineInfoWidget);
 	QWidget* centralWidget = new QWidget;
 	QHBoxLayout* mainLayout = new QHBoxLayout;
 
 	mainLayout->addWidget(m_boardWidget);
+	mainLayout->addWidget(m_engineInfoWidget);
 
 	centralWidget->setLayout(mainLayout);
 
@@ -75,6 +85,10 @@ void QtChessGUI::createActions(void)
 	m_closeAction->setShortcut(QKeySequence::Close);
 	connect(m_closeAction, &QAction::triggered, this, &QtChessGUI::sClose);
 
+	m_enginesAction = new QAction("E&dit engines");
+	m_enginesAction->setToolTip("Manage engines");
+	connect(m_enginesAction, &QAction::triggered, this, &QtChessGUI::sEngines);
+
 	m_quitAction = new QAction("&Quit");
 	m_quitAction->setToolTip("Quit the program");
 	m_quitAction->setShortcut(QKeySequence::Quit);
@@ -106,6 +120,11 @@ void QtChessGUI::createMenus(void)
 
 	m_fileMenu->addSeparator();
 	m_fileMenu->addAction(m_quitAction);
+
+	// Engines
+	m_enginesMenu = menuBar()->addMenu("&Engines");
+	m_enginesMenu->addAction(m_enginesAction);
+
 	// About menu
 	m_aboutMenu = menuBar()->addMenu("&About");
 	m_aboutMenu->addAction(m_aboutAction);
@@ -124,6 +143,7 @@ QString QtChessGUI::getEnginePath(int id)
 
 void QtChessGUI::sNewGame(void)
 {
+	m_newDialog->refresh();
 	if (m_newDialog->exec() != QDialog::Accepted)
 		return;
 	try
@@ -162,7 +182,7 @@ void QtChessGUI::sQuit(void)
 
 void QtChessGUI::sOpenDB(void)
 {
-	OpenDBBrowser* dbBrowser = new OpenDBBrowser(nullptr);
+	OpenDBBrowser* dbBrowser = new OpenDBBrowser(this);
 	if (dbBrowser->exec() == QDialog::Accepted)
 	{
 		int id = dbBrowser->getSelectedGameId();
@@ -215,6 +235,13 @@ void QtChessGUI::sSaveFile(void)
 
 void QtChessGUI::sClose(void)
 {
+	auto reply = QMessageBox::question(this, "Closing game",
+		"Do you want to save the game to file before closing?",
+		QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+	if (reply == QMessageBox::Cancel)
+		return;
+	if (reply == QMessageBox::Yes)
+		sSaveFile();
 	m_boardWidget->closeGame();
 	statusBar()->showMessage("Game closed");
 }
@@ -227,4 +254,10 @@ void QtChessGUI::sUndo(void)
 void QtChessGUI::sRedo(void)
 {
 	m_boardWidget->redo();
+}
+
+void QtChessGUI::sEngines(void)
+{
+	EnginesBrowser* engineBrowser = new EnginesBrowser(this);
+	engineBrowser->exec();
 }

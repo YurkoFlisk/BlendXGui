@@ -1,10 +1,13 @@
 #include "BoardWidget.h"
+#include "EngineInfoWidget.h"
+#include "Dialogs/EngineParamsDialog.h"
 
 using namespace BlendXChess;
 
-BoardWidget::BoardWidget(QWidget* parent)
+BoardWidget::BoardWidget(QWidget* parent, EngineInfoWidget* eIW)
 	: QWidget(parent), m_tileSize(64), m_whiteDown(true), m_selSq(Sq::NONE),
-	m_borderWidth(30), m_userSide(NULL_COLOR), m_gameType(GameType::None)
+	m_borderWidth(30), m_userSide(NULL_COLOR), m_gameType(GameType::None),
+	m_engineInfoWidget(eIW)
 {
 	m_boardLUCorner = QPoint(m_borderWidth, m_borderWidth);
 	m_tileQSize = QSizeF(m_tileSize, m_tileSize);
@@ -46,6 +49,11 @@ const BlendXChess::Game& BoardWidget::game(void) const
 void BoardWidget::closeGame(void)
 {
 	m_game.clear();
+	if (m_gameType == GameType::PlayerVsEngine)
+		m_engineProc[opposite(m_userSide)].close();
+	else if (m_gameType == GameType::EngineVsEngine)
+		for (auto& engine : m_engineProc)
+			engine.close();
 	m_gameType = GameType::None;
 }
 
@@ -72,6 +80,7 @@ void BoardWidget::startEngineVsEngine(QString whiteEnginePath, QString blackEngi
 {
 	closeGame();
 	m_gameType = GameType::EngineVsEngine;
+	m_userSide = NULL_COLOR;
 	m_whiteDown = true;
 	launchEngine(WHITE, whiteEnginePath);
 	launchEngine(BLACK, blackEnginePath);
@@ -79,14 +88,54 @@ void BoardWidget::startEngineVsEngine(QString whiteEnginePath, QString blackEngi
 
 void BoardWidget::undo(void)
 {
-	if (m_game.UndoMove())
-		repaint();
+	if (!userMoves() || !m_game.UndoMove())
+		return;
+	if (!userMoves())
+		m_game.UndoMove();
+	update();
 }
 
 void BoardWidget::redo(void)
 {
-	if (m_game.RedoMove())
-		repaint();
+	if (!userMoves() || !m_game.RedoMove())
+		return;
+	if (!userMoves())
+		m_game.RedoMove();
+	update();
+}
+
+void BoardWidget::goEngine(BlendXChess::Side side)
+{
+	if (side == NULL_COLOR)
+		return;
+	m_engineInfoWidget->clear();
+	UCIEngine& engine = m_engineProc[side];
+	engine.sendPosition(m_game.getPositionFEN());
+	engine.sendGo();
+}
+
+bool BoardWidget::doMove(const std::string& move)
+{
+	if (!m_game.DoMove(move, FMT_UCI))
+		return false;
+	if (auto gs = m_game.getGameState(); gs != GameState::ACTIVE)
+	{
+		QMessageBox::information(this, "Game result",
+			gs == GameState::WHITE_WIN ? "White won" :
+			gs == GameState::BLACK_WIN ? "Black won" :
+			gs == GameState::DRAW ? "Draw" : "Undefined");
+		return false;
+	}
+	const Side currentTurn = m_game.getPosition().getTurn();
+	if (m_gameType == GameType::PlayerVsEngine)
+	{
+		const Side engineSide = opposite(m_userSide);
+		if (engineSide == currentTurn)
+			goEngine(currentTurn);
+	}
+	else if (m_gameType == GameType::EngineVsEngine)
+		goEngine(currentTurn);
+	return true;
 }
 
 bool BoardWidget::loadPGN(std::istream& inGame)
@@ -101,6 +150,12 @@ bool BoardWidget::loadPGN(std::istream& inGame)
 		QMessageBox::critical(this, "Error", exc.what());
 		return false;
 	}
+}
+
+bool BoardWidget::userMoves(void) const noexcept
+{
+	return m_gameType == GameType::PlayerVsPlayer
+		|| m_game.getPosition().getTurn() == m_userSide;
 }
 
 void BoardWidget::paintEvent(QPaintEvent* eventInfo)
@@ -195,24 +250,18 @@ void BoardWidget::mousePressEvent(QMouseEvent* eventInfo)
 				repaint();
 			}
 		}
-		else if (m_gameType == GameType::PlayerVsPlayer
-			|| m_userSide == m_game.getPosition().getTurn())
+		else if (userMoves())
 		{
 			Move candidateMove = Move(m_selSq, sq);
 			// NOT just DoMove candidateMove, since it (NOW) expects correct
 			// move flags, which we haven't set
-			if (m_game.DoMove(candidateMove.toUCI(), FMT_UCI))
+			if (doMove(candidateMove.toUCI()))
 				m_selSq = Sq::NONE;
 			else if (board[sq] != PIECE_NULL)
 				m_selSq = sq;
 			else
 				m_selSq = Sq::NONE;
 			repaint();
-			if (auto gs = m_game.getGameState(); gs != GameState::ACTIVE)
-				QMessageBox::information(this, "Game result",
-					gs == GameState::WHITE_WIN ? "White won" :
-					gs == GameState::BLACK_WIN ? "Black won" :
-					gs == GameState::DRAW ? "Draw" : "Undefined");
 		}
 	}
 	else if (eventInfo->button() == Qt::MouseButton::RightButton)
@@ -241,7 +290,7 @@ void BoardWidget::startGame(void)
 		if (m_userSide == BLACK)
 		{
 			m_engineProc[WHITE].sendPosition("startpos");
-			m_engineProc[WHITE].sendGo();
+			m_engineProc[WHITE].sendGo(7);
 		}
 	}
 	else if (m_gameType == GameType::EngineVsEngine)
@@ -251,6 +300,7 @@ void BoardWidget::startGame(void)
 		m_engineProc[WHITE].sendPosition("startpos");
 		m_engineProc[WHITE].sendGo();
 	}
+	update();
 }
 
 void BoardWidget::launchEngine(BlendXChess::Side side, QString path)
@@ -287,6 +337,8 @@ void BoardWidget::eventCallback(UCIEngine* sender, const UCIEventInfo* eventInfo
 		loadEngineOptions(sender);
 		break;
 	case UCIEventInfo::Type::ReadyOk:
+		if (sender->getState() != UCIEngine::State::Ready)
+			break;
 		if (m_gameType == GameType::PlayerVsEngine)
 			startGame(); // Could be only one engine, so start immediately
 		else if (m_gameType == GameType::EngineVsEngine)
@@ -299,11 +351,17 @@ void BoardWidget::eventCallback(UCIEngine* sender, const UCIEventInfo* eventInfo
 	case UCIEventInfo::Type::BestMove:
 		if (senderSide != m_game.getPosition().getTurn())
 			return;
-		m_game.DoMove(eventInfo->bestMove, FMT_UCI);
+		if (!doMove(eventInfo->bestMove))
+			return;
 		update();
 		break;
 	case UCIEventInfo::Type::Info:
-		// TEMPORARILY EMPTY
+		m_engineInfoWidget->appendLine(eventInfo->errorText);
+		// TEMPORARY
+		break;
+	case UCIEventInfo::Type::Error:
+		QMessageBox::critical(this, "Engine error",
+			QString::fromStdString(eventInfo->errorText));
 		break;
 	}
 }

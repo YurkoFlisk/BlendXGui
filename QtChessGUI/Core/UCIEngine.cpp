@@ -1,4 +1,5 @@
 #include "UCIEngine.h"
+#include "misc.h"
 #include <sstream>
 
 UCIEngine::UCIEngine(void)
@@ -33,7 +34,7 @@ void UCIEngine::close(void)
 void UCIEngine::reset(QString path, Callback eventCallback)
 {
 	close();
-	m_process.start(path);
+	m_process.start(path, QStringList());
 	if (!m_process.waitForStarted(5000))
 		throw std::runtime_error("Engine process could not have been started");
 	QObject::connect(&m_process, &QProcess::readyReadStandardOutput,
@@ -61,8 +62,13 @@ void UCIEngine::setOption(const std::string& name, const UciOption::ValueType& v
 
 void UCIEngine::sendPosition(const std::string& positionFEN)
 {
-	std::string line("position " + positionFEN + "\n");
-	m_process.write(line.data());
+	if (positionFEN == "startpos")
+		m_process.write("startpos\n");
+	else
+	{
+		std::string line("position fen " + positionFEN + "\n");
+		m_process.write(line.data());
+	}
 }
 
 void UCIEngine::sendNewGame(void)
@@ -78,9 +84,11 @@ void UCIEngine::sendIsReady(void)
 	m_state = State::WaitingReadyOk;
 }
 
-void UCIEngine::sendGo(void)
+void UCIEngine::sendGo(int depth)
 {
-	m_process.write("go\n"); // TEMPORARILY
+	std::string line("go depth " + std::to_string(depth) + "\n");
+	m_process.write(line.data()); // TEMPORARILY
+	m_process.waitForBytesWritten(10000);
 }
 
 void UCIEngine::sendStop(void)
@@ -126,6 +134,8 @@ void UCIEngine::sProcessInput(void)
 		iss >> cmd;
 		if (cmd == "uciok")
 		{
+			if (m_state != State::WaitingUciOk)
+				continue;
 			m_state = State::SettingOptions;
 			m_eventInfo.type = UCIEventInfo::Type::UciOk;
 			m_eventCallback(this, &m_eventInfo);
@@ -141,7 +151,7 @@ void UCIEngine::sProcessInput(void)
 		else if (cmd == "option")
 		{ // should be m_state == State::WaitingUciOk
 			iss >> token; // assume 'name' is first
-			readStr(iss, m_name); // actual name
+			readStr(iss, token); // actual name
 			if (!m_options.insert({ token, UciOption(iss) }).second)
 				; // Duplicate option name
 		}
@@ -154,11 +164,16 @@ void UCIEngine::sProcessInput(void)
 		else if (cmd == "bestmove")
 		{
 			readBestmove(iss);
+			m_state = State::Ready;
+			m_eventInfo.type = UCIEventInfo::Type::BestMove;
 			m_eventCallback(this, &m_eventInfo);
 		}
 		else if (cmd == "info")
 		{
 			readInfo(iss);
+			getline(iss, m_eventInfo.errorText); // TEMPORARY
+			m_eventInfo.errorText = misc::trim(m_eventInfo.errorText);
+			m_eventInfo.type = UCIEventInfo::Type::Info;
 			m_eventCallback(this, &m_eventInfo);
 		}
 	}

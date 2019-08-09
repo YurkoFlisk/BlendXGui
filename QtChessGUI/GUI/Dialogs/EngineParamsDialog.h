@@ -1,7 +1,7 @@
 #pragma once
 
 #include <QDialog>
-#include "UCIEngine.h"
+#include "Core/UCIEngine.h"
 
 class EngineParamsDialog : public QDialog
 {

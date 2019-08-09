@@ -4,7 +4,7 @@
 #include <map>
 #include <memory>
 #include "Engine/engine.h"
-#include "EngineParams.h"
+#include "Core/UCIEngine.h"
 
 class BoardWidget : public QWidget
 {
@@ -15,7 +15,7 @@ public:
 		None, PlayerVsPlayer, PlayerVsEngine, EngineVsEngine
 	};
 
-	BoardWidget(QWidget *parent);
+	BoardWidget(QWidget *parent, class EngineInfoWidget* eIW);
 	~BoardWidget(void);
 
 	const BlendXChess::Game& game(void) const;
@@ -25,7 +25,10 @@ public:
 	void startEngineVsEngine(QString whiteEnginePath, QString blackEnginePath);
 	void undo(void);
 	void redo(void);
+	void goEngine(BlendXChess::Side side);
+	bool doMove(const std::string& move);
 	bool loadPGN(std::istream& inGame);
+	bool userMoves(void) const noexcept;
 protected:
 	void paintEvent(QPaintEvent* eventInfo) override;
 	void resizeEvent(QResizeEvent* eventInfo) override;
@@ -44,6 +47,7 @@ protected:
 	std::pair<int, int> tileCoordBySquare(BlendXChess::Square sq) const; // row, col
 	QPoint tilePointBySquare(BlendXChess::Square sq) const;
 
+	class EngineInfoWidget* m_engineInfoWidget; // Widget for sending engine info
 	GameType m_gameType; // Type of current game
 	BlendXChess::Game m_game; // Game object
 	BlendXChess::Side m_userSide; // Side of user (if game type is PlayerVsEngine)

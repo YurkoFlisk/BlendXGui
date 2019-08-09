@@ -895,18 +895,19 @@ void Position::loadFEN(std::istream& istr, bool omitCounters)
 			info.keyZobrist ^= ZobristCR[crMask];
 		} while ((castlingRight = istr.get()) != ' ');
 	// En passant information
-	char epFile;
-	istr >> epFile;
-	if (epFile != '-')
+	char epFileAN, epRankAN;
+	istr >> epFileAN;
+	if (epFileAN != '-')
 	{
-		int epRank;
-		istr >> epRank;
-		if (!validRank(epRank) || !validFile(fileFromAN(epFile))
+		istr >> epRankAN;
+		const int epFile = fileFromAN(epFileAN);
+		const int epRank = rankFromAN(epRankAN);
+		if (!validRank(epRank) || !validFile(epFile)
 			|| (epRank != 2 && epRank != 5))
 			throw std::runtime_error("Invalid en-passant square "
-				+ std::string({ epFile, rankToAN(epRank) }));
-		info.epSquare = Square(fileFromAN(epFile), epRank);
-		info.keyZobrist ^= ZobristEP[fileFromAN(epFile)];
+				+ std::string({ epFileAN, epRankAN }));
+		info.epSquare = Square(epRank, epFile);
+		info.keyZobrist ^= ZobristEP[epFile];
 	}
 	if (!omitCounters)
 	{
@@ -959,9 +960,13 @@ void Position::writeFEN(std::ostream& ostr, bool omitCounters) const
 			char cur_ch = pieceTypeToFEN(getPieceType(curPiece));
 			if (getPieceSide(curPiece) == BLACK)
 				cur_ch = tolower(cur_ch);
+			ostr << cur_ch;
 		}
 		if (consecutiveEmpty)
+		{
 			ostr << consecutiveEmpty;
+			consecutiveEmpty = 0;
+		}
 		ostr << (rank == 0 ? ' ' : '/');
 	}
 	// Side to move information
@@ -985,13 +990,13 @@ void Position::writeFEN(std::ostream& ostr, bool omitCounters) const
 	if (info.epSquare == Sq::NONE)
 		ostr << "- ";
 	else
-		ostr << info.epSquare.file() + 'a' << info.epSquare.rank() << ' ';
+		ostr << info.epSquare.fileAN() << info.epSquare.rankAN() << ' ';
 	if (!omitCounters)
 	{
 		// Halfmove counter (for 50 move draw rule) information
-		ostr << info.rule50 << ' ';
+		ostr << (int)info.rule50 << ' ';
 		// Counter of full moves (starting at 1) information
-		ostr << gamePly / 2;
+		ostr << 1 + gamePly / 2;
 	}
 }
 

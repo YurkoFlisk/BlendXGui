@@ -13,3 +13,6 @@ BoardWidget {
 QMenu {
 	background-color: gray;
 }
+QTextEdit {
+	background-color: lightgray;
+}

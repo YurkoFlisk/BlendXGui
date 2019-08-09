@@ -2,7 +2,7 @@
 #include <fstream>
 
 OpenDBBrowser::OpenDBBrowser(QWidget* parent)
-	: QDialog(parent), ok(false)
+	: QDialog(parent), ok(false), m_selectedGameId(-1)
 {
 	model = new QSqlQueryModel;
 	model->setQuery("call ExtGames()");
@@ -14,6 +14,7 @@ OpenDBBrowser::OpenDBBrowser(QWidget* parent)
 	{
 		QMessageBox::warning(this, "Error", "Could not fetch data from table: "
 			+ model->lastError().text());
+		reject();
 		return;
 	}
 
@@ -23,6 +24,7 @@ OpenDBBrowser::OpenDBBrowser(QWidget* parent)
 	view->hideColumn(1);
 	view->hideColumn(2);
 	view->setSelectionBehavior(QAbstractItemView::SelectRows);
+	view->horizontalHeader()->setStretchLastSection(true);
 	connect(view, &QTableView::doubleClicked, this, &OpenDBBrowser::sViewClicked);
 
 	QVBoxLayout* mainLayout = new QVBoxLayout;
@@ -35,7 +37,6 @@ OpenDBBrowser::OpenDBBrowser(QWidget* parent)
 void OpenDBBrowser::resizeEvent(QResizeEvent* eventInfo)
 {
 	QDialog::resizeEvent(eventInfo);
-	view->horizontalHeader()->setStretchLastSection(true);
 }
 
 OpenDBBrowser::~OpenDBBrowser()

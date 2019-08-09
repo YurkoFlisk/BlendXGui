@@ -1,7 +1,11 @@
 #pragma once
-#include "BoardWidget.h"
-#include "NewGameDialog.h"
+
 #include <QtSql>
+#include <QMainWindow>
+
+class NewGameDialog;
+class BoardWidget;
+class EngineInfoWidget;
 
 class QtChessGUI : public QMainWindow
 {
@@ -26,11 +30,14 @@ private:
 	void sClose(void);
 	void sUndo(void);
 	void sRedo(void);
+	void sEngines(void);
 	// Members
 	NewGameDialog* m_newDialog;
 	BoardWidget* m_boardWidget;
+	EngineInfoWidget* m_engineInfoWidget;
 	QMenu* m_fileMenu;
 	QMenu* m_aboutMenu;
+	QMenu* m_enginesMenu;
 	QAction* m_newAction;
 	QAction* m_openFromFileAction;
 	QAction* m_openFromDBAction;
@@ -39,6 +46,7 @@ private:
 	QAction* m_closeAction;
 	QAction* m_undoAction;
 	QAction* m_redoAction;
+	QAction* m_enginesAction;
 	QAction* m_quitAction;
 	QAction* m_aboutAction;
 	QSqlDatabase db;

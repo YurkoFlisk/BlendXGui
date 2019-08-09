@@ -26,15 +26,15 @@ NewGameDialog::NewGameDialog(QWidget *parent)
 	m_sideCB->addItem("Black", BlendXChess::BLACK);
 	m_sideCB->addItem("Random", BlendXChess::NULL_COLOR);
 
-	pvpW = new QWidget; // now empty
+	pvpW = new QGroupBox("Game options"); // now empty
 
-	withEngineW = new QWidget;
+	withEngineW = new QGroupBox("Game options");
 	QFormLayout* withEngineLayout = new QFormLayout;
 	withEngineLayout->addRow("Your side: ", m_sideCB);
 	withEngineLayout->addRow("Engine: ", m_engineCB);
 	withEngineW->setLayout(withEngineLayout);
 
-	engineVsEngineW = new QWidget;
+	engineVsEngineW = new QGroupBox("Game options");
 	QFormLayout* engineVsEngineLayout = new QFormLayout;
 	engineVsEngineLayout->addRow("White engine: ", m_whiteEngineCB);
 	engineVsEngineLayout->addRow("Black engine: ", m_blackEngineCB);
@@ -99,6 +99,11 @@ int NewGameDialog::getSelectedBlackEngineId(void) const
 {
 	auto model = m_blackEngineCB->model();
 	return model->data(model->index(m_blackEngineCB->currentIndex(), 0)).toInt();
+}
+
+void NewGameDialog::refresh(void)
+{
+	m_enginesModel->setQuery(m_enginesModel->query().executedQuery());
 }
 
 void NewGameDialog::sTypeToggled(bool checked)

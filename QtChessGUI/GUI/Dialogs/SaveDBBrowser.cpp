@@ -1,6 +1,8 @@
 #include <QtSql>
-#include "QtChessGUI.h"
 #include "SaveDBBrowser.h"
+#include "GUI/BoardWidget.h"
+#include "GUI/QtChessGUI.h"
+#include "Engine/engine.h"
 
 using namespace BlendXChess;
 
@@ -68,7 +70,7 @@ void SaveDBBrowser::sSave(void)
 	}
 	int whiteId = m_whiteName->model()->data(
 		m_whiteName->model()->index(m_whiteName->currentIndex(), 0)).toInt();
-	int blackId = m_whiteName->model()->data(
+	int blackId = m_blackName->model()->data(
 		m_whiteName->model()->index(m_blackName->currentIndex(), 0)).toInt();
 	QDate date = QDate::currentDate();
 	QSqlQuery query;
