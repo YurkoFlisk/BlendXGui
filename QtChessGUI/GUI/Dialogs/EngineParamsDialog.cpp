@@ -2,7 +2,7 @@
 #include "EngineParamsDialog.h"
 
 EngineParamsDialog::EngineParamsDialog(QWidget *parent,
-	const UCIEngine::Options& options)
+	const EngineOptions& options)
 	: QDialog(parent)
 {
 	okButton = new QPushButton("OK");

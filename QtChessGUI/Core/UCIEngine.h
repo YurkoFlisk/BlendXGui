@@ -1,7 +1,25 @@
 #pragma once
+
 #include <QtCore>
-#include "../Engine/ucioption.h"
-#include "../Engine/engine.h"
+#include <unordered_set>
+#include "Engine/ucioption.h"
+#include "Engine/engine.h"
+
+using EngineOptions = std::unordered_map<std::string, UciOption>;
+
+UciOption uciOptionFromJSON(QJsonObject obj);
+QJsonObject uciOptionToJSON(const UciOption& opt);
+
+struct EngineInfo
+{
+	static EngineInfo fromJSON(QJsonObject obj);
+	QJsonObject toJSON(void) const;
+
+	QString name;
+	QString path;
+	QString author;
+	EngineOptions options;
+};
 
 struct InfoDetails
 {
@@ -28,7 +46,6 @@ class UCIEngine
 {
 public:
 	using Callback = std::function<void(UCIEngine*, const UCIEventInfo*)>;
-	using Options = std::unordered_map<std::string, UciOption>;
 	static inline Callback EmptyCallback = [](UCIEngine*, const UCIEventInfo*) {};
 	enum class State {
 		NotSet, WaitingUciOk, SettingOptions, WaitingReadyOk, Ready, Searching
@@ -36,10 +53,11 @@ public:
 	UCIEngine(void);
 	UCIEngine(QString path, Callback eventCallback = EmptyCallback);
 	~UCIEngine(void);
+	inline const EngineInfo& getEngineInfo(void) const noexcept;
 	inline State getState(void) const noexcept;
 	inline std::string getName(void) const noexcept;
 	inline std::string getAuthor(void) const noexcept;
-	inline const Options& getOptions(void) const noexcept;
+	inline const EngineOptions& getOptions(void) const noexcept;
 	void close(void);
 	void reset(QString path, Callback eventCallback = EmptyCallback);
 	void setOptionFromString(const std::string& name, const std::string& value);
@@ -61,14 +79,20 @@ private:
 	// Called when process sends some info into 
 	void sProcessError(void);
 	// Data
+	EngineInfo m_info;
 	std::string m_name; // from UCI 'id' command
 	std::string m_author; // from UCI 'id' command
 	State m_state;
-	Options m_options;
+	EngineOptions m_options;
 	Callback m_eventCallback; // Callback to signalize initial option setting
 	UCIEventInfo m_eventInfo; // Pointer to this will be sent to callback after filling needed info in sProcessInput
 	QProcess m_process;
 };
+
+inline const EngineInfo& UCIEngine::getEngineInfo(void) const noexcept
+{
+	return m_info;
+}
 
 inline UCIEngine::State UCIEngine::getState(void) const noexcept
 {
@@ -85,7 +109,7 @@ inline std::string UCIEngine::getAuthor(void) const noexcept
 	return m_author;
 }
 
-inline const UCIEngine::Options& UCIEngine::getOptions(void) const noexcept
+inline const EngineOptions& UCIEngine::getOptions(void) const noexcept
 {
 	return m_options;
 }

@@ -14,7 +14,7 @@ UciOption::UciOption(std::istream& istr)
 UciOption::~UciOption(void)
 {}
 
-UciOption::ValueType UciOption::parseValue(const std::string& str, Type type)
+UciOption::ValueType UciOption::parseValueUnchecked(const std::string& str, Type type)
 {
 	ValueType ret;
 	switch (type)
@@ -78,6 +78,8 @@ void UciOption::readDefinition(std::istream& istr)
 			if (auto it = typeByStr.find(token); it != typeByStr.end())
 				type = it->second;
 		}
+		else if (optionInfo == "name")
+			readStr(istr, name);
 		else if (optionInfo == "default")
 			readStr(istr, defaultStr);
 		else if (optionInfo == "min")
@@ -100,30 +102,24 @@ void UciOption::readDefinition(std::istream& istr)
 	// Note that UCI specification DOESN'T clearly state the order of
 	// option infos (type, default value etc), so here there are no assumptions
 	// about it. Otherwise, we could just parse defaultValue right after reading it
-	setValueFromString(defaultValue, defaultStr);
-	value = defaultValue;
+	defaultValue = parseValue(defaultStr);
 }
 
-void UciOption::readValue(std::istream& istr)
+UciOption::ValueType UciOption::parseValue(const std::string& str) const
 {
-	std::string str;
-	readStr(istr, str);
-	setValue(value, str);
+	const ValueType val = parseValueUnchecked(str, type);
+	checkValue(val);
+	return val;
 }
 
-void UciOption::setValue(const ValueType& val)
+std::string UciOption::toString(const ValueType& val) const
 {
-	setValue(value, val);
+	checkValue(val);
+	return valueToString(val, type);
 }
 
-void UciOption::setValueFromString(const std::string& str)
+void UciOption::checkValue(const UciOption::ValueType& val) const
 {
-	setValueFromString(value, str);
-}
-
-void UciOption::setValue(ValueType& valInto, const ValueType& val)
-{
-	// Assume type is already properly set
 	if (type == Type::Spin)
 	{
 		if (!std::holds_alternative<int>(val))
@@ -152,12 +148,6 @@ void UciOption::setValue(ValueType& valInto, const ValueType& val)
 	}
 	else
 		throw std::runtime_error("Can't set value for current option type");
-	valInto = val;
-}
-
-void UciOption::setValueFromString(ValueType& val, const std::string& str)
-{
-	setValue(val, parseValue(str, type));
 }
 
 void readStr(std::istream& istr, std::string& str)

@@ -63,6 +63,9 @@
     <ClCompile Include="Core\UCIEngine.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Core\EnginesModel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="GUI\BoardWidget.h">
@@ -87,6 +90,9 @@
       <Filter>Header Files</Filter>
     </QtMoc>
     <QtMoc Include="GUI\Dialogs\SaveDBBrowser.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="Core\EnginesModel.h">
       <Filter>Header Files</Filter>
     </QtMoc>
   </ItemGroup>

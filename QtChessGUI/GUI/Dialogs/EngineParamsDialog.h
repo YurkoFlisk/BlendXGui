@@ -8,7 +8,7 @@ class EngineParamsDialog : public QDialog
 	Q_OBJECT
 
 public:
-	EngineParamsDialog(QWidget *parent, const UCIEngine::Options& options);
+	EngineParamsDialog(QWidget *parent, const EngineOptions& options);
 	~EngineParamsDialog(void);
 	UciOption::ValueType getOptionValue(const std::string& name);
 private:
