@@ -48,12 +48,16 @@ EngineInfo EngineInfo::fromJSON(QJsonObject obj)
 {
 	EngineInfo engineInfo;
 	engineInfo.name = obj["name"].toString();
+	engineInfo.uciname = obj["uciname"].toString();
 	engineInfo.path = obj["path"].toString();
 	engineInfo.author = obj["author"].toString();
 
 	if (engineInfo.name.isEmpty())
 		throw std::runtime_error(QObject::tr(
 			"Invalid or missing engine name").toStdString());
+	if (engineInfo.uciname.isEmpty())
+		throw std::runtime_error(QObject::tr(
+			"Invalid or missing UCI engine name").toStdString());
 	if (engineInfo.path.isEmpty())
 		throw std::runtime_error(QObject::tr(
 			"Invalid or missing engine path").toStdString());
@@ -77,6 +81,7 @@ QJsonObject EngineInfo::toJSON(void) const
 {
 	QJsonObject obj;
 	obj["name"] = name;
+	obj["uciname"] = uciname;
 	obj["path"] = path;
 	if (!author.isEmpty())
 		obj["author"] = author;
@@ -90,13 +95,18 @@ QJsonObject EngineInfo::toJSON(void) const
 }
 
 UCIEngine::UCIEngine(void)
-	: m_state(State::NotSet), m_eventCallback(EmptyCallback)
-{}
-
-UCIEngine::UCIEngine(QString path, Callback eventCallback)
-	: m_state(State::NotSet)
+	: m_state(State::NotSet), m_launchType(LaunchType::NotSet)
 {
-	reset(path, eventCallback);
+	connect(&m_process, &QProcess::readyReadStandardOutput,
+		this, UCIEngine::sProcessInput);
+	connect(&m_process, &QProcess::readyReadStandardError,
+		this, UCIEngine::sProcessError);
+}
+
+UCIEngine::UCIEngine(QString path, LaunchType launchType)
+	: m_state(State::NotSet), m_launchType(LaunchType::NotSet)
+{
+	reset(path, launchType);
 }
 
 UCIEngine::~UCIEngine(void)
@@ -107,36 +117,38 @@ void UCIEngine::close(void)
 	if (m_process.state() != QProcess::ProcessState::NotRunning)
 	{
 		m_process.write("stop\n"); // In case search is in process
+		m_process.write("quit\n");
 		m_process.closeWriteChannel();
 		if (!m_process.waitForFinished(2000))
 		{
 			m_process.kill();
-			throw std::runtime_error("Could not finish previous engine process, so killed it");
+			throw std::runtime_error(tr(
+				"Could not finish previous engine process, so killed it").toStdString());
 		}
 		m_state = State::NotSet;
-		return;
+		m_launchType = LaunchType::NotSet;
+		m_info = EngineInfo();
 	}
 }
 
-void UCIEngine::reset(QString path, Callback eventCallback)
+void UCIEngine::reset(QString path, LaunchType launchType)
 {
 	close();
 	m_process.start(path, QStringList());
 	if (!m_process.waitForStarted(5000))
-		throw std::runtime_error("Engine process could not have been started");
-	(void)QObject::connect(&m_process, &QProcess::readyReadStandardOutput,
-		[this]() {return sProcessInput(); });
-	(void)QObject::connect(&m_process, &QProcess::readyReadStandardError,
-		[this]() {return sProcessError(); });
+		throw std::runtime_error(tr(
+			"Engine process could not have been started").toStdString());
+	
 	m_process.write("uci\n");
 	m_state = State::WaitingUciOk;
-	m_eventCallback = eventCallback;
+	m_launchType = launchType;
 }
 
 void UCIEngine::setOptionFromString(const std::string& name, const std::string& value)
 {
 	if (m_state != State::SettingOptions)
-		throw std::runtime_error("We should set options only in SettingOptions state");
+		throw std::runtime_error(tr(
+			"We should set options only in SettingOptions state").toStdString());
 	writeSetOption(name, value);
 }
 
@@ -191,7 +203,7 @@ void UCIEngine::readBestmove(std::istream& iss)
 
 void UCIEngine::readInfo(std::istream& iss)
 {
-	// TEMPORARY EMPTY
+	// TEMPORARILY EMPTY
 }
 
 void UCIEngine::writeSetOption(const std::string& name, const std::string& value)
@@ -202,9 +214,10 @@ void UCIEngine::writeSetOption(const std::string& name, const std::string& value
 
 UciOption& UCIEngine::getOption(const std::string& name)
 {
-	auto it = m_options.find(name);
-	if (it == m_options.end())
-		throw std::runtime_error("Could not find the option with specified name");
+	auto it = m_info.options.find(name);
+	if (it == m_info.options.end())
+		throw std::runtime_error(tr(
+			"Could not find the option with specified name").toStdString());
 	return it->second;
 }
 
@@ -219,36 +232,45 @@ void UCIEngine::sProcessInput(void)
 		{
 			if (m_state != State::WaitingUciOk)
 				continue;
-			m_state = State::SettingOptions;
 			m_eventInfo.type = UCIEventInfo::Type::UciOk;
-			m_eventCallback(this, &m_eventInfo);
+			emit engineSignal(&m_eventInfo);
+			if (m_launchType == LaunchType::Play)
+				m_state = State::SettingOptions;
+			else if (m_launchType == LaunchType::Info)
+				close();
 		}
 		else if (cmd == "id")
 		{ // should be m_state == State::WaitingUciOk
 			iss >> token;
 			if (token == "name")
-				std::getline(iss, m_name);
+			{
+				std::getline(iss, token);
+				m_info.uciname = QString::fromStdString(token);
+			}
 			else if (token == "author")
-				std::getline(iss, m_author);
+			{
+				std::getline(iss, token);
+				m_info.author = QString::fromStdString(token);
+			}
 		}
 		else if (cmd == "option")
 		{ // should be m_state == State::WaitingUciOk
 			UciOption option(iss);
-			if (!m_options.insert({ option.getName(), option }).second)
+			if (!m_info.options.insert({ option.getName(), option }).second)
 				; // Duplicate option name
 		}
 		else if (cmd == "readyok")
 		{
 			m_state = State::Ready;
 			m_eventInfo.type = UCIEventInfo::Type::ReadyOk;
-			m_eventCallback(this, &m_eventInfo);
+			emit engineSignal(&m_eventInfo);
 		}
 		else if (cmd == "bestmove")
 		{
 			readBestmove(iss);
 			m_state = State::Ready;
 			m_eventInfo.type = UCIEventInfo::Type::BestMove;
-			m_eventCallback(this, &m_eventInfo);
+			emit engineSignal(&m_eventInfo);
 		}
 		else if (cmd == "info")
 		{
@@ -256,7 +278,7 @@ void UCIEngine::sProcessInput(void)
 			getline(iss, m_eventInfo.errorText); // TEMPORARY
 			m_eventInfo.errorText = misc::trim(m_eventInfo.errorText);
 			m_eventInfo.type = UCIEventInfo::Type::Info;
-			m_eventCallback(this, &m_eventInfo);
+			emit engineSignal(&m_eventInfo);
 		}
 	}
 }
@@ -265,5 +287,5 @@ void UCIEngine::sProcessError(void)
 {
 	m_eventInfo.type = UCIEventInfo::Type::Error;
 	m_eventInfo.errorText = m_process.readAllStandardError().toStdString();
-	m_eventCallback(this, &m_eventInfo);
+	emit engineSignal(&m_eventInfo);
 }

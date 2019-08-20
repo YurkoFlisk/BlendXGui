@@ -66,6 +66,12 @@
     <ClCompile Include="Core\EnginesModel.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Core\EnginePreset.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\Game.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="GUI\BoardWidget.h">
@@ -95,6 +101,12 @@
     <QtMoc Include="Core\EnginesModel.h">
       <Filter>Header Files</Filter>
     </QtMoc>
+    <QtMoc Include="Core\Game.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="Core\UCIEngine.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
   </ItemGroup>
   <ItemGroup>
     <QtRcc Include="QtChessGUI.qrc">
@@ -105,7 +117,7 @@
     <ClInclude Include="Core\misc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Core\UCIEngine.h">
+    <ClInclude Include="Core\EnginePreset.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

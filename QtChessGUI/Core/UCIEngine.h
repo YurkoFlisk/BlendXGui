@@ -6,6 +6,7 @@
 #include "Engine/engine.h"
 
 using EngineOptions = std::unordered_map<std::string, UciOption>;
+using EngineOptionValues = std::unordered_map<std::string, UciOption::ValueType>;
 
 UciOption uciOptionFromJSON(QJsonObject obj);
 QJsonObject uciOptionToJSON(const UciOption& opt);
@@ -16,6 +17,7 @@ struct EngineInfo
 	QJsonObject toJSON(void) const;
 
 	QString name;
+	QString uciname;
 	QString path;
 	QString author;
 	EngineOptions options;
@@ -42,24 +44,31 @@ struct UCIEventInfo
 	std::string errorText;
 };
 
-class UCIEngine
+class UCIEngine : QObject
 {
+	Q_OBJECT
+
 public:
-	using Callback = std::function<void(UCIEngine*, const UCIEventInfo*)>;
-	static inline Callback EmptyCallback = [](UCIEngine*, const UCIEventInfo*) {};
 	enum class State {
 		NotSet, WaitingUciOk, SettingOptions, WaitingReadyOk, Ready, Searching
 	};
+	enum class LaunchType {
+		NotSet, Play, Info
+	};
+
 	UCIEngine(void);
-	UCIEngine(QString path, Callback eventCallback = EmptyCallback);
+	UCIEngine(QString path, LaunchType type);
 	~UCIEngine(void);
+
 	inline const EngineInfo& getEngineInfo(void) const noexcept;
 	inline State getState(void) const noexcept;
 	inline std::string getName(void) const noexcept;
 	inline std::string getAuthor(void) const noexcept;
 	inline const EngineOptions& getOptions(void) const noexcept;
+	inline LaunchType getLaunchType(void) const noexcept;
+
 	void close(void);
-	void reset(QString path, Callback eventCallback = EmptyCallback);
+	void reset(QString path, LaunchType type);
 	void setOptionFromString(const std::string& name, const std::string& value);
 	void setOption(const std::string& name, const UciOption::ValueType& value);
 	void sendPosition(const std::string& positionFEN);
@@ -67,6 +76,10 @@ public:
 	void sendIsReady(void);
 	void sendGo(int depth = 10);
 	void sendStop(void);
+signals:
+	// Signal for notifying about engine events, which is
+	// triggered after appropriate input from the process
+	void engineSignal(const UCIEventInfo* eventInfo);
 private:
 	// Reading various event info from stream
 	void readBestmove(std::istream& iss);
@@ -79,12 +92,9 @@ private:
 	// Called when process sends some info into 
 	void sProcessError(void);
 	// Data
-	EngineInfo m_info;
-	std::string m_name; // from UCI 'id' command
-	std::string m_author; // from UCI 'id' command
+	EngineInfo m_info; // As given by current process
 	State m_state;
-	EngineOptions m_options;
-	Callback m_eventCallback; // Callback to signalize initial option setting
+	LaunchType m_launchType;
 	UCIEventInfo m_eventInfo; // Pointer to this will be sent to callback after filling needed info in sProcessInput
 	QProcess m_process;
 };
@@ -101,15 +111,20 @@ inline UCIEngine::State UCIEngine::getState(void) const noexcept
 
 inline std::string UCIEngine::getName(void) const noexcept
 {
-	return m_name;
+	return m_info.name.toStdString();
 }
 
 inline std::string UCIEngine::getAuthor(void) const noexcept
 {
-	return m_author;
+	return m_info.author.toStdString();
 }
 
 inline const EngineOptions& UCIEngine::getOptions(void) const noexcept
 {
-	return m_options;
+	return m_info.options;
+}
+
+inline UCIEngine::LaunchType UCIEngine::getLaunchType(void) const noexcept
+{
+	return m_launchType;
 }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <map>
+#include <unordered_map>
 #include <QAbstractTableModel>
 #include "UCIEngine.h"
 
@@ -31,6 +31,7 @@ public:
 	// void loadFromSQLite();
 	void loadFromJSON(const QString& path);
 	void saveToJSON(const QString& path) const;
+	const EngineInfo& getByName(const QString& name) const;
 private:
-	std::vector<EngineInfo> engines;
+	std::vector<EngineInfo> m_data;
 };

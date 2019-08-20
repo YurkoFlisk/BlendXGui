@@ -9,13 +9,11 @@ EnginesModel::EnginesModel(QString path, bool db = false, QObject *parent)
 		loadFromJSON(path);
 }
 
-EnginesModel::~EnginesModel()
-{
-}
+EnginesModel::~EnginesModel() = default;
 
 int EnginesModel::rowCount(const QModelIndex& parent) const
 {
-	return engines.size();
+	return m_data.size();
 }
 
 int EnginesModel::columnCount(const QModelIndex& parent) const
@@ -28,9 +26,10 @@ QVariant EnginesModel::data(const QModelIndex& index, int role) const
 	if (!index.isValid())
 		return QVariant();
 	const int row = index.row(), column = index.column();
-	if (row < 0 || engines.size() <= row || column < 0 || COLUMN_COUNT <= column)
+	if (row < 0 || m_data.size() <= row || column < 0 || COLUMN_COUNT <= column)
 		return QVariant();
-	const auto& engine = engines[row];
+
+	const auto& engine = m_data[row];
 	if (role == Qt::DisplayRole || role == Qt::EditRole)
 		switch (column)
 		{
@@ -50,13 +49,13 @@ void EnginesModel::loadFromJSON(const QString& path)
 
 	QJsonDocument doc;
 	doc.fromJson(file.readAll());
-	QJsonArray enginesArr = doc.array();
+	QJsonArray engineArr = doc.array();
 
-	for (const auto& engRef : enginesArr)
+	for (const auto& engRef : engineArr)
 	{
 		const QJsonObject engineInfo = engRef.toObject();
 		if (!engineInfo.empty())
-			engines.push_back(EngineInfo::fromJSON(engineInfo));
+			m_data.push_back(EngineInfo::fromJSON(engineInfo));
 	}
 }
 
@@ -67,8 +66,20 @@ void EnginesModel::saveToJSON(const QString& path) const
 		throw std::runtime_error(tr("Could not open JSON file").toStdString());
 
 	QJsonArray enginesArr;
-	for (const auto& engine : engines)
+	for (const auto& engine : m_data)
 		enginesArr.append(engine.toJSON());
 
 	file.write(QJsonDocument(enginesArr).toJson());
+}
+
+const EngineInfo& EnginesModel::getByName(const QString& name) const
+{
+	auto it = std::find_if(m_data.begin(), m_data.end(),
+		[&name](const EngineInfo& ei) {
+			return ei.name == name;
+		});
+	if (it == m_data.end())
+		throw std::runtime_error(tr(
+			"Could not find engine by its id").toStdString());
+	return *it;
 }

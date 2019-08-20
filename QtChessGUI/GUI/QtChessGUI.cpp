@@ -28,7 +28,7 @@ QtChessGUI::QtChessGUI(QWidget* parent)
 
 	m_newDialog = new NewGameDialog(this);
 	m_engineInfoWidget = new EngineInfoWidget(this);
-	m_boardWidget = new BoardWidget(this, m_engineInfoWidget);
+	m_boardWidget = new BoardWidget(this);
 	QWidget* centralWidget = new QWidget;
 	QHBoxLayout* mainLayout = new QHBoxLayout;
 
@@ -88,6 +88,10 @@ void QtChessGUI::createActions(void)
 	m_enginesAction = new QAction("E&dit engines");
 	m_enginesAction->setToolTip("Manage engines");
 	connect(m_enginesAction, &QAction::triggered, this, &QtChessGUI::sEngines);
+
+	m_presetsAction = new QAction("Edit &presets");
+	m_presetsAction->setToolTip("Manage engine presets");
+	connect(m_presetsAction, &QAction::triggered, this, &QtChessGUI::sPresets);
 
 	m_quitAction = new QAction("&Quit");
 	m_quitAction->setToolTip("Quit the program");
@@ -258,6 +262,11 @@ void QtChessGUI::sRedo(void)
 
 void QtChessGUI::sEngines(void)
 {
-	EnginesBrowser* engineBrowser = new EnginesBrowser(this);
-	engineBrowser->exec();
+	EnginesBrowser* enginesBrowser = new EnginesBrowser(this);
+	enginesBrowser->exec();
+}
+
+void QtChessGUI::sPresets(void)
+{
+	
 }

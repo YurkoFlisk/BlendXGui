@@ -6,6 +6,8 @@
 class NewGameDialog;
 class BoardWidget;
 class EngineInfoWidget;
+class EnginesModel;
+class PresetsModel;
 
 class QtChessGUI : public QMainWindow
 {
@@ -31,10 +33,14 @@ private:
 	void sUndo(void);
 	void sRedo(void);
 	void sEngines(void);
+	void sPresets(void);
 	// Members
 	NewGameDialog* m_newDialog;
 	BoardWidget* m_boardWidget;
 	EngineInfoWidget* m_engineInfoWidget;
+	EnginesModel* m_engines;
+	PresetsModel* m_presets;
+	
 	QMenu* m_fileMenu;
 	QMenu* m_aboutMenu;
 	QMenu* m_enginesMenu;
@@ -47,6 +53,7 @@ private:
 	QAction* m_undoAction;
 	QAction* m_redoAction;
 	QAction* m_enginesAction;
+	QAction* m_presetsAction;
 	QAction* m_quitAction;
 	QAction* m_aboutAction;
 	QSqlDatabase db;
