@@ -2,6 +2,7 @@
 
 #include <QDialog>
 #include <QtSql>
+#include "Core/EnginesModel.h"
 
 class EnginesBrowser : public QDialog
 {
@@ -9,7 +10,7 @@ class EnginesBrowser : public QDialog
 
 public:
 	EnginesBrowser(QWidget *parent);
-	~EnginesBrowser(void);
+	~EnginesBrowser();
 private:
 	bool checkValues(void);
 	void refreshTable(void);

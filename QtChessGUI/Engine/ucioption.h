@@ -39,21 +39,22 @@ public:
 	static ValueType parseValueUnchecked(const std::string& str, Type type);
 	static std::string valueToString(const ValueType& val, Type type);
 
-	UciOption(void);
+	UciOption();
 	UciOption(std::istream& istr);
-	~UciOption(void);
+	~UciOption();
 
 	// Getters
-	inline std::string getName(void) const noexcept;
-	inline Type getType(void) const noexcept;
-	inline std::string getTypeStr(void) const noexcept;
-	inline int getMin(void) const noexcept;
-	inline int getMax(void) const noexcept;
-	inline bool getDefaultBool(void) const noexcept;
-	inline int getDefaultInt(void) const noexcept;
+	inline std::string getName() const noexcept;
+	inline Type getType() const noexcept;
+	inline std::string getTypeStr() const noexcept;
+	inline int getMin() const noexcept;
+	inline int getMax() const noexcept;
+	inline ValueType getDefault() const;
+	inline bool getDefaultBool() const;
+	inline int getDefaultInt() const;
 	// Converts to string representation if needed
-	inline std::string getDefaultString(void) const noexcept; 
-	inline ComboList getComboVars(void) const noexcept;
+	inline std::string getDefaultString() const; 
+	inline ComboList getComboVars() const noexcept;
 
 	void clear(void);
 	void readDefinition(std::istream& istr);
@@ -74,12 +75,12 @@ inline std::string UciOption::getName() const noexcept
 	return name;
 }
 
-inline UciOption::Type UciOption::getType(void) const noexcept
+inline UciOption::Type UciOption::getType() const noexcept
 {
 	return type;
 }
 
-inline std::string UciOption::getTypeStr(void) const noexcept
+inline std::string UciOption::getTypeStr() const noexcept
 {
 	auto it = std::find_if(typeByStr.begin(), typeByStr.end(), [this](const auto& t) {
 		return t.second == type;
@@ -87,32 +88,37 @@ inline std::string UciOption::getTypeStr(void) const noexcept
 	return it == typeByStr.end() ? "" : it->first;
 }
 
-inline int UciOption::getMin(void) const noexcept
+inline int UciOption::getMin() const noexcept
 {
 	return min;
 }
 
-inline int UciOption::getMax(void) const noexcept
+inline int UciOption::getMax() const noexcept
 {
 	return max;
 }
 
-inline bool UciOption::getDefaultBool(void) const noexcept
+inline UciOption::ValueType UciOption::getDefault() const
+{
+	return defaultValue;
+}
+
+inline bool UciOption::getDefaultBool() const
 {
 	return std::get<bool>(defaultValue);
 }
 
-inline int UciOption::getDefaultInt(void) const noexcept
+inline int UciOption::getDefaultInt() const
 {
 	return std::get<int>(defaultValue);
 }
 
-inline std::string UciOption::getDefaultString(void) const noexcept
+inline std::string UciOption::getDefaultString() const
 {
 	return valueToString(defaultValue, type);
 }
 
-inline UciOption::ComboList UciOption::getComboVars(void) const noexcept
+inline UciOption::ComboList UciOption::getComboVars() const noexcept
 {
 	return comboVars;
 }

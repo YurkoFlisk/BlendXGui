@@ -5,32 +5,39 @@
 #include "EngineInfoWidget.h"
 #include "OpenDBBrowser.h"
 #include "EnginesBrowser.h"
+#include "PresetsBrowser.h"
 #include "Engine/engine.h"
+#include "Core/EnginesModel.h"
 #include "Dialogs/NewGameDialog.h"
 #include "Dialogs/SaveDBBrowser.h"
 
 QtChessGUI::QtChessGUI(QWidget* parent)
 	: QMainWindow(parent)
 {
-	db = QSqlDatabase::addDatabase("QMYSQL");
-	db.setHostName("localhost");
-	db.setDatabaseName("chessdb");
-	db.setUserName("root");
-	db.setPassword("LamboV3n3n0");
-	if (!db.open())
-		QMessageBox::critical(this, "Error", "Could not connect to database: "
-			+ db.lastError().text());
-	/*if (!db.driver()->hasFeature(QSqlDriver::Transactions))
-		QMessageBox::warning(this, "Error",
-			"Your database doesn't support transactions");*/
+	//db = QSqlDatabase::addDatabase("QMYSQL");
+	//db.setHostName("localhost");
+	//db.setDatabaseName("chessdb");
+	//db.setUserName("root");
+	//db.setPassword("LamboV3n3n0");
+	//if (!db.open())
+	//	QMessageBox::critical(this, tr("Error"), tr("Could not connect to database: ")
+	//		+ db.lastError().text());
+	///*if (!db.driver()->hasFeature(QSqlDriver::Transactions))
+	//	QMessageBox::warning(this, "Error",
+	//		"Your database doesn't support transactions");*/
 
 	BlendXChess::Game::initialize();
+	m_game = new Game(this);
+
+	connect(m_game, &Game::engineErrorSignal, this, &QtChessGUI::sEngineError);
+	connect(m_game, &Game::searchInfoSignal, this, &QtChessGUI::sEngineInfo);
+	connect(m_game, &Game::engineInitSignal, m_engines, &EnginesModel::updateEngine);
 
 	m_newDialog = new NewGameDialog(this);
 	m_engineInfoWidget = new EngineInfoWidget(this);
-	m_boardWidget = new BoardWidget(this);
-	QWidget* centralWidget = new QWidget;
-	QHBoxLayout* mainLayout = new QHBoxLayout;
+	m_boardWidget = new BoardWidget(m_game, this);
+	QWidget* const centralWidget = new QWidget;
+	QHBoxLayout* const mainLayout = new QHBoxLayout;
 
 	mainLayout->addWidget(m_boardWidget);
 	mainLayout->addWidget(m_engineInfoWidget);
@@ -49,72 +56,72 @@ QtChessGUI::~QtChessGUI(void)
 
 void QtChessGUI::createActions(void)
 {
-	m_newAction = new QAction("&New");
-	m_newAction->setToolTip("Start new game");
+	m_newAction = new QAction(tr("&New"));
+	m_newAction->setToolTip(tr("Start new game"));
 	m_newAction->setShortcut(QKeySequence::New);
 	connect(m_newAction, &QAction::triggered, this, &QtChessGUI::sNewGame);
 
-	m_openFromDBAction = new QAction("Open from &DB");
-	m_openFromDBAction->setToolTip("Browse data from database and select the game to view");
+	m_openFromDBAction = new QAction(tr("Open from &DB"));
+	m_openFromDBAction->setToolTip(tr("Browse data from database and select the game to view"));
 	connect(m_openFromDBAction, &QAction::triggered, this, &QtChessGUI::sOpenDB);
 
-	m_openFromFileAction = new QAction("Open from &file");
-	m_openFromFileAction->setToolTip("Open game from PGN file");
+	m_openFromFileAction = new QAction(tr("Open from &file"));
+	m_openFromFileAction->setToolTip(tr("Open game from PGN file"));
 	connect(m_openFromFileAction, &QAction::triggered, this, &QtChessGUI::sOpenFile);
 
-	m_saveToDBAction = new QAction("&Save to DB");
-	m_saveToDBAction->setToolTip("Save to DB in PGN format");
+	m_saveToDBAction = new QAction(tr("&Save to DB"));
+	m_saveToDBAction->setToolTip(tr("Save to DB in PGN format"));
 	connect(m_saveToDBAction, &QAction::triggered, this, &QtChessGUI::sSaveDB);
 
-	m_saveToFileAction = new QAction("&Save to file");
-	m_saveToFileAction->setToolTip("Save to file in PGN format");
+	m_saveToFileAction = new QAction(tr("&Save to file"));
+	m_saveToFileAction->setToolTip(tr("Save to file in PGN format"));
 	connect(m_saveToFileAction, &QAction::triggered, this, &QtChessGUI::sSaveFile);
 
-	m_undoAction = new QAction("&Undo");
-	m_undoAction->setToolTip("Undo the last move");
+	m_undoAction = new QAction(tr("&Undo"));
+	m_undoAction->setToolTip(tr("Undo the last move"));
 	m_undoAction->setShortcut(QKeySequence::Undo);
 	connect(m_undoAction, &QAction::triggered, this, &QtChessGUI::sUndo);
 
-	m_redoAction = new QAction("&Redo");
-	m_redoAction->setToolTip("Redo the lastly undone move");
+	m_redoAction = new QAction(tr("&Redo"));
+	m_redoAction->setToolTip(tr("Redo the lastly undone move"));
 	m_redoAction->setShortcut(QKeySequence::Redo);
 	connect(m_redoAction, &QAction::triggered, this, &QtChessGUI::sRedo);
 
-	m_closeAction = new QAction("&Close");
-	m_closeAction->setToolTip("Close current game");
+	m_closeAction = new QAction(tr("&Close"));
+	m_closeAction->setToolTip(tr("Close current game"));
 	m_closeAction->setShortcut(QKeySequence::Close);
 	connect(m_closeAction, &QAction::triggered, this, &QtChessGUI::sClose);
 
-	m_enginesAction = new QAction("E&dit engines");
-	m_enginesAction->setToolTip("Manage engines");
+	m_enginesAction = new QAction(tr("E&dit engines"));
+	m_enginesAction->setToolTip(tr("Manage engines"));
 	connect(m_enginesAction, &QAction::triggered, this, &QtChessGUI::sEngines);
 
-	m_presetsAction = new QAction("Edit &presets");
-	m_presetsAction->setToolTip("Manage engine presets");
+	m_presetsAction = new QAction(tr("Edit &presets"));
+	m_presetsAction->setToolTip(tr("Manage engine presets"));
 	connect(m_presetsAction, &QAction::triggered, this, &QtChessGUI::sPresets);
 
-	m_quitAction = new QAction("&Quit");
-	m_quitAction->setToolTip("Quit the program");
+	m_quitAction = new QAction(tr("&Quit"));
+	m_quitAction->setToolTip(tr("Quit the program"));
 	m_quitAction->setShortcut(QKeySequence::Quit);
 	connect(m_quitAction, &QAction::triggered, this, &QtChessGUI::sQuit);
 
-	m_aboutAction = new QAction("&About");
-	m_aboutAction->setToolTip("About program");
+	m_aboutAction = new QAction(tr("&About"));
+	m_aboutAction->setToolTip(tr("About program"));
 	connect(m_aboutAction, &QAction::triggered, this, &QtChessGUI::sAbout);
 }
 
 void QtChessGUI::createMenus(void)
 {
 	// File menu
-	m_fileMenu = menuBar()->addMenu("&File");
+	m_fileMenu = menuBar()->addMenu(tr("&File"));
 	m_fileMenu->addAction(m_newAction);
 	m_fileMenu->addAction(m_closeAction);
 
-	QMenu* openSubmenu = m_fileMenu->addMenu("&Open");
+	QMenu* const openSubmenu = m_fileMenu->addMenu(tr("&Open"));
 	openSubmenu->addAction(m_openFromFileAction);
 	openSubmenu->addAction(m_openFromDBAction);
 
-	QMenu* saveSubmenu = m_fileMenu->addMenu("&Save");
+	QMenu* const saveSubmenu = m_fileMenu->addMenu(tr("&Save"));
 	saveSubmenu->addAction(m_saveToFileAction);
 	saveSubmenu->addAction(m_saveToDBAction);
 
@@ -126,11 +133,11 @@ void QtChessGUI::createMenus(void)
 	m_fileMenu->addAction(m_quitAction);
 
 	// Engines
-	m_enginesMenu = menuBar()->addMenu("&Engines");
+	m_enginesMenu = menuBar()->addMenu(tr("&Engines"));
 	m_enginesMenu->addAction(m_enginesAction);
 
 	// About menu
-	m_aboutMenu = menuBar()->addMenu("&About");
+	m_aboutMenu = menuBar()->addMenu(tr("&About"));
 	m_aboutMenu->addAction(m_aboutAction);
 }
 
@@ -140,9 +147,19 @@ QString QtChessGUI::getEnginePath(int id)
 	query.prepare("SELECT path FROM engine_players WHERE id = ?");
 	query.addBindValue(id);
 	if (!query.exec() || !query.first())
-		throw std::runtime_error("Error reading engine path from database: "
-			+ db.lastError().text().toStdString());
+		throw std::runtime_error(tr("Error reading engine path from database: ")
+			.toStdString() + db.lastError().text().toStdString());
 	return query.value("path").toString();
+}
+
+void QtChessGUI::sEngineError(BlendXChess::Side side, QString errorText)
+{
+	QMessageBox::critical(this, tr("Engine error"), errorText);
+}
+
+void QtChessGUI::sEngineInfo(BlendXChess::Side side, const SearchInfoDetails& info)
+{
+	m_engineInfoWidget->setInfo(side, info);
 }
 
 void QtChessGUI::sNewGame(void)
@@ -154,23 +171,23 @@ void QtChessGUI::sNewGame(void)
 	{
 		if (m_newDialog->pvp())
 		{
-			m_boardWidget->startPVP();
+			m_game->startPVP();
 		}
 		else if (m_newDialog->withEngine())
 		{
 			QString enginePath = getEnginePath(m_newDialog->getSelectedEngineId());
-			m_boardWidget->startWithEngine(m_newDialog->getSelectedSide(), enginePath);
+			m_game->startWithEngine(m_newDialog->getSelectedSide(), enginePath);
 		}
 		else
 		{
 			QString whiteEnginePath = getEnginePath(m_newDialog->getSelectedWhiteEngineId());
 			QString blackEnginePath = getEnginePath(m_newDialog->getSelectedWhiteEngineId());
-			m_boardWidget->startEngineVsEngine(whiteEnginePath, blackEnginePath);
+			m_game->startEngineVsEngine(whiteEnginePath, blackEnginePath);
 		}
 	}
 	catch (const std::runtime_error& err)
 	{
-		QMessageBox::critical(this, "Error", err.what());
+		QMessageBox::critical(this, tr("Error"), err.what());
 	}
 }
 
@@ -186,7 +203,7 @@ void QtChessGUI::sQuit(void)
 
 void QtChessGUI::sOpenDB(void)
 {
-	OpenDBBrowser* dbBrowser = new OpenDBBrowser(this);
+	OpenDBBrowser* const dbBrowser = new OpenDBBrowser(this);
 	if (dbBrowser->exec() == QDialog::Accepted)
 	{
 		int id = dbBrowser->getSelectedGameId();
@@ -195,78 +212,90 @@ void QtChessGUI::sOpenDB(void)
 		query.addBindValue(id);
 		if (!query.exec() || !query.first())
 		{
-			QMessageBox::critical(this, "Error", "Error reading PGN from database: "
-				+ db.lastError().text());
+			QMessageBox::critical(this, tr("Error"),
+				tr("Error reading PGN from database: ") + db.lastError().text());
 			return;
 		}
 		std::istringstream iss(query.value("PGN").toString().toStdString());
-		if (m_boardWidget->loadPGN(iss))
-			statusBar()->showMessage("Game loaded successfully");
-		else
-			statusBar()->showMessage("Error loading game");
+		try
+		{
+			m_game->loadPGN(iss);
+			statusBar()->showMessage(tr("Game loaded successfully"));
+		}
+		catch (const std::runtime_error& err)
+		{
+			statusBar()->showMessage(tr("Error loading game: ") + err.what());
+		}
 	}
 }
 
 void QtChessGUI::sOpenFile(void)
 {
-	QString path = QFileDialog::getOpenFileName(this, "Open PGN file", "", "All files (*)");
+	const QString path = QFileDialog::getOpenFileName(this,
+		tr("Open PGN file"), "", tr("All files (*)"));
 	if (path.isEmpty())
 		return;
 	std::ifstream inGame(path.toStdString());
-	if (m_boardWidget->loadPGN(inGame))
-		statusBar()->showMessage("Game loaded successfully");
-	else
-		statusBar()->showMessage("Error loading game");
+	try
+	{
+		m_game->loadPGN(inGame);
+		statusBar()->showMessage(tr("Game loaded successfully"));
+	}
+	catch (const std::runtime_error& err)
+	{
+		statusBar()->showMessage(tr("Error loading game: ") + err.what());
+	}
 }
 
 void QtChessGUI::sSaveDB(void)
 {
-	SaveDBBrowser* dbBrowser = new SaveDBBrowser(this);
+	SaveDBBrowser* const dbBrowser = new SaveDBBrowser(this);
 	if (dbBrowser->exec() == QDialog::Accepted)
-		statusBar()->showMessage("Game saved successfully");
+		statusBar()->showMessage(tr("Game saved successfully"));
 }
 
 void QtChessGUI::sSaveFile(void)
 {
-	QString savePath = QFileDialog::getSaveFileName(this, "Save current game", QString(),
-		"Portable game notation (*.pgn)");
+	const QString savePath = QFileDialog::getSaveFileName(this, tr("Save current game"),
+		QString(), tr("Portable game notation (*.pgn)"));
 	if (savePath.isEmpty())
 		return;
 	std::ofstream outGame(savePath.toStdString());
-	m_boardWidget->game().writeGame(outGame);
-	statusBar()->showMessage("Game saved successfully");
+	m_game->getGame().writeGame(outGame);
+	statusBar()->showMessage(tr("Game saved successfully"));
 }
 
 void QtChessGUI::sClose(void)
 {
-	auto reply = QMessageBox::question(this, "Closing game",
-		"Do you want to save the game to file before closing?",
+	const auto reply = QMessageBox::question(this, tr("Closing game"),
+		tr("Do you want to save the game to file before closing?"),
 		QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
 	if (reply == QMessageBox::Cancel)
 		return;
 	if (reply == QMessageBox::Yes)
 		sSaveFile();
-	m_boardWidget->closeGame();
-	statusBar()->showMessage("Game closed");
+	m_game->closeGame();
+	statusBar()->showMessage(tr("Game closed"));
 }
 
 void QtChessGUI::sUndo(void)
 {
-	m_boardWidget->undo();
+	m_game->undo();
 }
 
 void QtChessGUI::sRedo(void)
 {
-	m_boardWidget->redo();
+	m_game->redo();
 }
 
 void QtChessGUI::sEngines(void)
 {
-	EnginesBrowser* enginesBrowser = new EnginesBrowser(this);
+	EnginesBrowser* const enginesBrowser = new EnginesBrowser(this);
 	enginesBrowser->exec();
 }
 
 void QtChessGUI::sPresets(void)
 {
-	
+	PresetsBrowser* const presetsBrowser = new PresetsBrowser(this);
+	presetsBrowser->exec();
 }

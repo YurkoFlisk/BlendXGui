@@ -1,12 +1,10 @@
 #include "EnginesModel.h"
+#include "PresetsModel.h"
 
-EnginesModel::EnginesModel(QString path, bool db = false, QObject *parent)
+EnginesModel::EnginesModel(QString path, QObject *parent)
 	: QAbstractTableModel(parent)
 {
-	/*if (db)
-		loadFromSQLite(path);
-	else*/
-		loadFromJSON(path);
+	loadFromJSON(path);
 }
 
 EnginesModel::~EnginesModel() = default;
@@ -33,9 +31,9 @@ QVariant EnginesModel::data(const QModelIndex& index, int role) const
 	if (role == Qt::DisplayRole || role == Qt::EditRole)
 		switch (column)
 		{
-		case 0: return engine.name;
-		case 1: return engine.path;
-		case 2: return engine.author;
+		case 0: return engine.info.name;
+		case 1: return engine.info.path;
+		case 2: return engine.info.author;
 		}
 	else
 		return QAbstractTableModel::data(index, role);
@@ -47,15 +45,22 @@ void EnginesModel::loadFromJSON(const QString& path)
 	if (!file.open(QIODevice::ReadOnly))
 		throw std::runtime_error(tr("Could not open JSON file").toStdString());
 
-	QJsonDocument doc;
-	doc.fromJson(file.readAll());
+	QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
 	QJsonArray engineArr = doc.array();
 
 	for (const auto& engRef : engineArr)
 	{
-		const QJsonObject engineInfo = engRef.toObject();
-		if (!engineInfo.empty())
-			m_data.push_back(EngineInfo::fromJSON(engineInfo));
+		const QJsonObject engineObj = engRef.toObject();
+		if (!engineObj.empty())
+		{
+			const QJsonObject infoObj = engineObj["info"].toObject();
+			const QJsonArray presetsArr = engineObj["presets"].toArray();
+			if (infoObj.empty())
+				continue;
+			const EngineInfo engineInfo = EngineInfo::fromJSON(infoObj);
+			m_data.emplace_back(engineInfo,
+				new PresetsModel(presetsArr, *this, engineInfo.name));
+		}
 	}
 }
 
@@ -67,19 +72,39 @@ void EnginesModel::saveToJSON(const QString& path) const
 
 	QJsonArray enginesArr;
 	for (const auto& engine : m_data)
-		enginesArr.append(engine.toJSON());
+	{
+		QJsonObject engineObj;
+		engineObj["info"] = engine.info.toJSON();
+		engineObj["presets"] = engine.presets->toJSON();
+		enginesArr.append(engineObj);
+	}
 
 	file.write(QJsonDocument(enginesArr).toJson());
 }
 
-const EngineInfo& EnginesModel::getByName(const QString& name) const
+const EnginesModel::Item* EnginesModel::getByName(const QString& name) const
 {
-	auto it = std::find_if(m_data.begin(), m_data.end(),
+	const auto it = std::find_if(m_data.begin(), m_data.end(),
 		[&name](const EngineInfo& ei) {
 			return ei.name == name;
 		});
 	if (it == m_data.end())
-		throw std::runtime_error(tr(
-			"Could not find engine by its id").toStdString());
-	return *it;
+		return nullptr;
+	return &*it;
+}
+
+EnginesModel::Item* EnginesModel::getByName(const QString& name)
+{
+	return const_cast<EnginesModel::Item*>(
+		static_cast<const EnginesModel*>(this)->getByName(name));
+}
+
+void EnginesModel::updateEngine(const EngineInfo& newInfo)
+{
+	EnginesModel::Item* const curItem = getByName(newInfo.name);
+	if (curItem == nullptr)
+		m_data.emplace_back(newInfo, new PresetsModel(
+			{ EnginePreset::defaultFor(newInfo) }, *this, newInfo.name));
+	else
+		curItem->info = newInfo;
 }

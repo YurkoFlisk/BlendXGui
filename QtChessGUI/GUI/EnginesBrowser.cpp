@@ -100,8 +100,7 @@ EnginesBrowser::EnginesBrowser(QWidget *parent)
 	connect(closeButton, &QPushButton::clicked, this, &EnginesBrowser::reject);
 }
 
-EnginesBrowser::~EnginesBrowser(void)
-{}
+EnginesBrowser::~EnginesBrowser() = default;
 
 bool EnginesBrowser::checkValues(void)
 {

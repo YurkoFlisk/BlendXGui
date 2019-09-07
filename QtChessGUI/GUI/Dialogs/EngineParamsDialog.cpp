@@ -5,8 +5,8 @@ EngineParamsDialog::EngineParamsDialog(QWidget *parent,
 	const EngineOptions& options)
 	: QDialog(parent)
 {
-	okButton = new QPushButton("OK");
-	cancelButton = new QPushButton("Cancel");
+	okButton = new QPushButton(tr("OK"));
+	cancelButton = new QPushButton(tr("Cancel"));
 	
 	QFormLayout
 		*checkLayout = new QFormLayout,
@@ -14,10 +14,10 @@ EngineParamsDialog::EngineParamsDialog(QWidget *parent,
 		*spinLayout = new QFormLayout,
 		*stringLayout = new QFormLayout;
 	QGroupBox
-		*checkGB = new QGroupBox("Check options"),
-		*comboGB = new QGroupBox("Combo options"),
-		*spinGB = new QGroupBox("Spin options"),
-		*stringGB = new QGroupBox("String options");
+		*checkGB = new QGroupBox(tr("Check options")),
+		*comboGB = new QGroupBox(tr("Combo options")),
+		*spinGB = new QGroupBox(tr("Spin options")),
+		*stringGB = new QGroupBox(tr("String options"));
 	QCheckBox* checkEdit;
 	QComboBox* comboEdit;
 	QSpinBox* spinEdit;
@@ -53,7 +53,7 @@ EngineParamsDialog::EngineParamsDialog(QWidget *parent,
 			stringLayout->addRow(qname, stringEdit);
 			break;
 		}
-		optionEdits.emplace(name, std::pair{ option.getType(), editWidget });
+		m_optionEdits.emplace(name, std::pair{ option.getType(), editWidget });
 	}
 
 	checkGB->setLayout(checkLayout);
@@ -88,34 +88,9 @@ EngineParamsDialog::EngineParamsDialog(QWidget *parent,
 	connect(cancelButton, &QPushButton::clicked, this, &EngineParamsDialog::reject);
 }
 
-EngineParamsDialog::~EngineParamsDialog(void)
-{}
+EngineParamsDialog::~EngineParamsDialog() = default;
 
 UciOption::ValueType EngineParamsDialog::getOptionValue(const std::string& name)
 {
-	auto it = optionEdits.find(name);
-	if (it == optionEdits.end())
-		throw std::invalid_argument("No option named '" + name + "'");
-	QCheckBox* checkEdit;
-	QComboBox* comboEdit;
-	QSpinBox* spinEdit;
-	QLineEdit* stringEdit;
-	QWidget* editWidget = it->second.second;
-	switch (it->second.first)
-	{
-	case UciOption::Type::Check:
-		checkEdit = static_cast<QCheckBox*>(editWidget);
-		return checkEdit->isChecked();
-	case UciOption::Type::Combo:
-		comboEdit = static_cast<QComboBox*>(editWidget);
-		return comboEdit->currentText().toStdString();
-	case UciOption::Type::Spin:
-		spinEdit = static_cast<QSpinBox*>(editWidget);
-		return spinEdit->value();
-	case UciOption::Type::String:
-		stringEdit = static_cast<QLineEdit*>(editWidget);
-		return stringEdit->text().toStdString();
-	default:
-		throw std::runtime_error("Unexpected option type for editing");
-	}
+	
 }

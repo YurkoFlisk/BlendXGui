@@ -2,9 +2,9 @@
 #include "EngineInfoWidget.h"
 #include "Dialogs/EngineParamsDialog.h"
 
-BoardWidget::BoardWidget(QWidget* parent)
+BoardWidget::BoardWidget(Game* game, QWidget* parent)
 	: QWidget(parent), m_tileSize(64), m_whiteDown(true),
-	m_selSq(BlendXChess::Sq::NONE), m_borderWidth(30)
+	m_selSq(BlendXChess::Sq::NONE), m_borderWidth(30), m_game(game)
 {
 	using namespace BlendXChess;
 
@@ -34,11 +34,29 @@ BoardWidget::BoardWidget(QWidget* parent)
 	m_svgPieces[B_QUEEN].load(QString("Images/Pieces/Cburnett/blackQueen.svg"));
 	m_svgPieces[B_KING].load(QString("Images/Pieces/Cburnett/blackKing.svg"));
 
-	m_game = new ::Game(this);
+	(void)connect(m_game, &::Game::positionChangedSignal, this, &BoardWidget::sPositionChanged);
+	(void)connect(m_game, &::Game::gameFinishedSignal, this, &BoardWidget::sGameFinished);
+
 	m_game->startPVP();
 }
 
 BoardWidget::~BoardWidget(void) = default;
+
+void BoardWidget::sPositionChanged()
+{
+	update();
+}
+
+void BoardWidget::sGameFinished()
+{
+	using BlendXChess::GameState;
+
+	const GameState state = m_game->getGame().getGameState();
+	QMessageBox::information(this, tr("Game result"),
+		state == GameState::WHITE_WIN ? tr("White won") :
+		state == GameState::BLACK_WIN ? tr("Black won") :
+		state == GameState::DRAW ? tr("Draw") : tr("Undefined"));
+}
 
 void BoardWidget::paintEvent(QPaintEvent* eventInfo)
 {

@@ -15,10 +15,13 @@ public:
 		None, PlayerVsPlayer, PlayerVsEngine, EngineVsEngine
 	};
 
-	BoardWidget(QWidget *parent);
+	BoardWidget(Game* game, QWidget *parent = nullptr);
 	~BoardWidget(void);
 
 	inline const Game* getGame(void) const noexcept;
+protected slots:
+	void sPositionChanged();
+	void sGameFinished();
 protected:
 	void paintEvent(QPaintEvent* eventInfo) override;
 	void resizeEvent(QResizeEvent* eventInfo) override;

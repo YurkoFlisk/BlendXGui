@@ -1,43 +1,70 @@
 #include "NewGameDialog.h"
+#include "Core/EnginesModel.h"
+#include "Core/PresetsModel.h"
+#include "GUI/PresetsBrowser.h"
 
 using namespace BlendXChess;
 
-NewGameDialog::NewGameDialog(QWidget *parent)
-	: QDialog(parent)
+PresetSelector::PresetSelector(PresetsBrowser* browser, QWidget* parent)
+	: QWidget(parent), m_browser(browser)
 {
-	QPushButton* okButton = new QPushButton("&Ok");
-	QPushButton* cancelButton = new QPushButton("&Cancel");
-	m_pvp = new QRadioButton("Pvp");
-	m_withEngine = new QRadioButton("With engine");
-	m_engineVsEngine = new QRadioButton("Engine vs engine");
-	m_sideCB = new QComboBox;
-	m_engineCB = new QComboBox;
-	m_whiteEngineCB = new QComboBox;
-	m_blackEngineCB = new QComboBox;
+	m_currentLabel = new QLabel(tr("Current preset: none"));
+	m_browsePB = new QPushButton(tr("Change"));
 
-	QGroupBox* typeGB = new QGroupBox("Game type");
+	connect(m_browsePB, &QPushButton::clicked, this, PresetSelector::sChange);
+
+	QHBoxLayout* mainLayout = new QHBoxLayout;
+	mainLayout->addWidget(m_currentLabel);
+	mainLayout->addWidget(m_browsePB);
+	setLayout(mainLayout);
+}
+
+PresetSelector::~PresetSelector() = default;
+
+void PresetSelector::sChange()
+{
+	if (m_browser->exec() == QDialog::Accepted)
+		m_currentId = m_browser->getCurrentId();
+}
+
+NewGameDialog::NewGameDialog(PresetsModel* presets, QWidget* parent)
+	: QDialog(parent), m_presets(presets)
+{
+	QPushButton* okButton = new QPushButton(tr("&Ok"));
+	QPushButton* cancelButton = new QPushButton(tr("&Cancel"));
+	m_pvp = new QRadioButton(tr("Pvp"));
+	m_withEngine = new QRadioButton(tr("With engine"));
+	m_engineVsEngine = new QRadioButton(tr("Engine vs engine"));
+	m_sideCB = new QComboBox;
+
+	PresetsBrowser* presetsBrowser = new PresetsBrowser(presets, true, this);
+	m_engineSelector = new PresetSelector(presetsBrowser);
+	m_whiteEngineSelector = new PresetSelector(presetsBrowser);
+	m_blackEngineSelector = new PresetSelector(presetsBrowser);
+
+	QGroupBox* typeGB = new QGroupBox(tr("Game type"));
 	QHBoxLayout* typeGBLayout = new QHBoxLayout;
 	typeGBLayout->addWidget(m_pvp);
 	typeGBLayout->addWidget(m_withEngine);
 	typeGBLayout->addWidget(m_engineVsEngine);
 	typeGB->setLayout(typeGBLayout);
 
-	m_sideCB->addItem("White", BlendXChess::WHITE);
-	m_sideCB->addItem("Black", BlendXChess::BLACK);
-	m_sideCB->addItem("Random", BlendXChess::NULL_COLOR);
+	m_sideCB->addItem(tr("White"), BlendXChess::WHITE);
+	m_sideCB->addItem(tr("Black"), BlendXChess::BLACK);
+	m_sideCB->addItem(tr("Random"), BlendXChess::NULL_COLOR);
 
-	pvpW = new QGroupBox("Game options"); // now empty
+	pvpW = new QGroupBox(tr("Game options")); // now empty
 
-	withEngineW = new QGroupBox("Game options");
+	withEngineW = new QGroupBox(tr("Game options"));
 	QFormLayout* withEngineLayout = new QFormLayout;
-	withEngineLayout->addRow("Your side: ", m_sideCB);
-	withEngineLayout->addRow("Engine: ", m_engineCB);
+	withEngineLayout->addRow(tr("Your side: "), m_sideCB);
+	withEngineLayout->addRow(tr("Preset: "), m_engineSelector);
 	withEngineW->setLayout(withEngineLayout);
 
-	engineVsEngineW = new QGroupBox("Game options");
+	engineVsEngineW = new QGroupBox(tr("Game options"));
 	QFormLayout* engineVsEngineLayout = new QFormLayout;
-	engineVsEngineLayout->addRow("White engine: ", m_whiteEngineCB);
-	engineVsEngineLayout->addRow("Black engine: ", m_blackEngineCB);
+	engineVsEngineLayout->addRow(tr("White preset: "), m_whiteEngineSelector);
+	engineVsEngineLayout->addRow(tr("Black preset: "), m_blackEngineSelector);
 	engineVsEngineW->setLayout(engineVsEngineLayout);
 
 	QHBoxLayout* okCancelLayout = new QHBoxLayout;
@@ -52,20 +79,6 @@ NewGameDialog::NewGameDialog(QWidget *parent)
 	mainLayout->addLayout(okCancelLayout);
 	setLayout(mainLayout);
 
-	m_sideCB->setSizeAdjustPolicy(QComboBox::SizeAdjustPolicy::AdjustToContents);
-	m_engineCB->setSizeAdjustPolicy(QComboBox::SizeAdjustPolicy::AdjustToContents);
-	m_whiteEngineCB->setSizeAdjustPolicy(QComboBox::SizeAdjustPolicy::AdjustToContents);
-	m_blackEngineCB->setSizeAdjustPolicy(QComboBox::SizeAdjustPolicy::AdjustToContents);
-
-	m_enginesModel = new QSqlQueryModel(this);
-	m_enginesModel->setQuery("SELECT id, name FROM engine_players");
-	m_engineCB->setModel(m_enginesModel);
-	m_engineCB->setModelColumn(1);
-	m_whiteEngineCB->setModel(m_enginesModel);
-	m_whiteEngineCB->setModelColumn(1);
-	m_blackEngineCB->setModel(m_enginesModel);
-	m_blackEngineCB->setModelColumn(1);
-
 	connect(okButton, &QPushButton::clicked, this, &NewGameDialog::accept);
 	connect(cancelButton, &QPushButton::clicked, this, &NewGameDialog::reject);
 	connect(m_pvp, &QRadioButton::toggled, this, &NewGameDialog::sTypeToggled);
@@ -75,33 +88,29 @@ NewGameDialog::NewGameDialog(QWidget *parent)
 	m_pvp->setChecked(true); // after connect's
 }
 
-NewGameDialog::~NewGameDialog()
-{}
+NewGameDialog::~NewGameDialog() = default;
 
-Side NewGameDialog::getSelectedSide(void) const
+Side NewGameDialog::getSelectedSide() const
 {
 	return (Side)m_sideCB->currentData().toInt();
 }
 
-int NewGameDialog::getSelectedEngineId(void) const
+std::string NewGameDialog::getSelectedPresetId() const
 {
-	auto model = m_engineCB->model();
-	return model->data(model->index(m_engineCB->currentIndex(), 0)).toInt();
+	return m_engineSelector->getCurrentId();
 }
 
-int NewGameDialog::getSelectedWhiteEngineId(void) const
+std::string NewGameDialog::getSelectedWhitePresetId() const
 {
-	auto model = m_whiteEngineCB->model();
-	return model->data(model->index(m_whiteEngineCB->currentIndex(), 0)).toInt();
+	return m_whiteEngineSelector->getCurrentId();
 }
 
-int NewGameDialog::getSelectedBlackEngineId(void) const
+std::string NewGameDialog::getSelectedBlackPresetId() const
 {
-	auto model = m_blackEngineCB->model();
-	return model->data(model->index(m_blackEngineCB->currentIndex(), 0)).toInt();
+	return m_blackEngineSelector->getCurrentId();
 }
 
-void NewGameDialog::refresh(void)
+void NewGameDialog::refresh()
 {
 	m_enginesModel->setQuery(m_enginesModel->query().executedQuery());
 }

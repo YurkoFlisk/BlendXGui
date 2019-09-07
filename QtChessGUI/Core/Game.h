@@ -23,8 +23,8 @@ public:
 	void closeGame();
 	// Start game of various types
 	void startPVP();
-	void startWithEngine(BlendXChess::Side userSide, QString enginePath);
-	void startEngineVsEngine(QString whiteEnginePath, QString blackEnginePath);
+	void startWithEngine(BlendXChess::Side userSide, UCIEngine* engine);
+	void startEngineVsEngine(UCIEngine* whiteEngine, UCIEngine* blackEngine);
 	// Undo/redo
 	void undo();
 	void redo();
@@ -33,21 +33,28 @@ public:
 	// Perform a move given in UCI format
 	bool doMove(const std::string& move);
 	// Load game from given stream
-	bool loadPGN(std::istream& inGame);
+	void loadPGN(std::istream& inGame);
+signals:
+	void gameFinishedSignal();
+	void positionChangedSignal();
+	void engineInitSignal(const EngineInfo& engineInfo);
+	void engineErrorSignal(BlendXChess::Side side, QString errorText);
+	void searchInfoSignal(BlendXChess::Side side, const SearchInfoDetails& info);
+	void loadEngineOptions();
 protected slots:
 	// This class' engine event callback (other may be registered as well) 
-	void engineEventCallback(const UCIEventInfo* eventInfo);
+	void engineEventCallback(const EngineEvent* eventInfo);
 protected:
+	// Close engine
+	void closeEngine(BlendXChess::Side side);
 	// Start game when all necessary conditions (eg, engines are set up) are met
 	void startGame();
-	// Launch given engine as given side player
-	void launchEngine(BlendXChess::Side side, QString path);
 
 	std::chrono::milliseconds m_clock[2]; // Remaining clock time for both players
 	GameType m_gameType; // Type of current game
 	BlendXChess::Game m_game; // Game object
 	BlendXChess::Side m_userSide; // Side of user (if game type is PlayerVsEngine)
-	UCIEngine m_engineProc[BlendXChess::COLOR_CNT]; // Engines for sides
+	UCIEngine* m_engineProc[BlendXChess::COLOR_CNT]; // Engines for sides
 };
 
 inline bool Game::isUserTurn() const noexcept

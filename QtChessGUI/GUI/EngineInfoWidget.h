@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QTextEdit>
+#include "Engine/basic_types.h"
 
 class EngineInfoWidget : public QTextEdit
 {
@@ -8,7 +9,10 @@ class EngineInfoWidget : public QTextEdit
 
 public:
 	EngineInfoWidget(QWidget *parent);
-	~EngineInfoWidget(void);
-	void clear(void);
+	~EngineInfoWidget();
+
+	void clear();
 	void appendLine(const std::string& str);
+
+	void setInfo(BlendXChess::Side side, const struct SearchInfoDetails& info);
 };

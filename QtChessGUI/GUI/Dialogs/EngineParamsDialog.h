@@ -12,7 +12,7 @@ public:
 	~EngineParamsDialog(void);
 	UciOption::ValueType getOptionValue(const std::string& name);
 private:
-	std::unordered_map<std::string, std::pair<UciOption::Type, QWidget*>> optionEdits;
+	std::unordered_map<std::string, std::pair<UciOption::Type, QWidget*>> m_optionEdits;
 	QPushButton* okButton;
 	QPushButton* cancelButton;
 };

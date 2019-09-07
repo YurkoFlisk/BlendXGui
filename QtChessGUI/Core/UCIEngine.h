@@ -23,22 +23,26 @@ struct EngineInfo
 	EngineOptions options;
 };
 
-struct InfoDetails
+struct SearchInfoDetails
 {
 	enum class ScoreType {
 		Cp, Mate, LowerBound, UpperBound
 	};
+
 	int depth;
 	int score;
+	ScoreType scoreType;
+	BlendXChess::Move move;
 };
 
-struct UCIEventInfo
+struct EngineEvent
 {
 	enum struct Type {
 		None, Error, UciOk, ReadyOk, BestMove, Info
 	};
+
 	Type type;
-	InfoDetails infoDetails;
+	SearchInfoDetails infoDetails;
 	std::string bestMove; // UCI string
 	std::string ponderMove; // UCI string
 	std::string errorText;
@@ -79,7 +83,7 @@ public:
 signals:
 	// Signal for notifying about engine events, which is
 	// triggered after appropriate input from the process
-	void engineSignal(const UCIEventInfo* eventInfo);
+	void engineSignal(const EngineEvent* eventInfo);
 private:
 	// Reading various event info from stream
 	void readBestmove(std::istream& iss);
@@ -95,7 +99,7 @@ private:
 	EngineInfo m_info; // As given by current process
 	State m_state;
 	LaunchType m_launchType;
-	UCIEventInfo m_eventInfo; // Pointer to this will be sent to callback after filling needed info in sProcessInput
+	EngineEvent m_eventInfo; // Pointer to this will be sent to callback after filling needed info in sProcessInput
 	QProcess m_process;
 };
 

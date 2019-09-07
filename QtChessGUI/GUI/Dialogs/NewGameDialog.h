@@ -4,36 +4,64 @@
 #include <QtSql>
 #include "Engine/basic_types.h"
 
+class EnginePreset;
+class PresetsModel;
+class PresetsBrowser;
+
+class PresetSelector : public QWidget
+{
+	Q_OBJECT
+
+public:
+	PresetSelector(PresetsBrowser* browser, QWidget* parent = nullptr);
+	~PresetSelector();
+
+	inline std::string getCurrentId() const;
+private slots:
+	void sChange();
+private:
+	std::string m_currentId;
+	PresetsBrowser* m_browser;
+	QLabel* m_currentLabel;
+	QPushButton* m_browsePB;
+};
+
 class NewGameDialog : public QDialog
 {
 	Q_OBJECT
 
 public:
-	NewGameDialog(QWidget *parent);
+	NewGameDialog(PresetsModel* presets, QWidget* parent = nullptr);
 	~NewGameDialog();
-	BlendXChess::Side getSelectedSide(void) const; // Valid only for Pvp
-	int getSelectedEngineId(void) const; // Valid only for withEngine
-	int getSelectedWhiteEngineId(void) const; // Valid only for engineVsEngine
-	int getSelectedBlackEngineId(void) const; // Valid only for engineVsEngine
-	void refresh(void);
-	inline bool pvp(void) const;
-	inline bool withEngine(void) const;
-	inline bool engineVsEngine(void) const;
-private:
-	void sTypeToggled(bool checked);
 
-	QSqlQueryModel* m_enginesModel;
+	BlendXChess::Side getSelectedSide() const; // Valid only for withEngine
+	std::string getSelectedPresetId() const; // Valid only for withEngine
+	std::string getSelectedWhitePresetId() const; // Valid only for engineVsEngine
+	std::string getSelectedBlackPresetId() const; // Valid only for engineVsEngine
+	void refresh();
+	inline bool pvp() const;
+	inline bool withEngine() const;
+	inline bool engineVsEngine() const;
+private slots:
+	void sTypeToggled(bool checked);
+private:
+	PresetsModel* m_presets;
 	QWidget* pvpW;
 	QWidget* withEngineW;
 	QWidget* engineVsEngineW;
 	QComboBox* m_sideCB;
-	QComboBox* m_engineCB;
-	QComboBox* m_whiteEngineCB;
-	QComboBox* m_blackEngineCB;
+	PresetSelector* m_engineSelector;
+	PresetSelector* m_whiteEngineSelector;
+	PresetSelector* m_blackEngineSelector;
 	QRadioButton* m_pvp;
 	QRadioButton* m_withEngine;
 	QRadioButton* m_engineVsEngine;
 };
+
+inline std::string PresetSelector::getCurrentId() const
+{
+	return m_currentId;
+}
 
 inline bool NewGameDialog::pvp(void) const
 {

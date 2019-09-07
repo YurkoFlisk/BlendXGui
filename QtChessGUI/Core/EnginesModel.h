@@ -4,14 +4,7 @@
 #include <QAbstractTableModel>
 #include "UCIEngine.h"
 
-struct EnginePreset
-{
-	using OptionValues = std::unordered_map<std::string, UciOption::ValueType>;
-
-	QString name;
-	QString engineName;
-	OptionValues optionValues;
-};
+class PresetsModel;
 
 class EnginesModel : public QAbstractTableModel
 {
@@ -20,7 +13,17 @@ class EnginesModel : public QAbstractTableModel
 public:
 	static constexpr int COLUMN_COUNT = 4;
 
-	EnginesModel(QString path, bool db = false, QObject* parent = nullptr);
+	struct Item
+	{
+		inline Item(const EngineInfo& info, PresetsModel* presets)
+			: info(info), presets(presets)
+		{}
+
+		EngineInfo info;
+		PresetsModel* presets;
+	};
+
+	EnginesModel(QString path, QObject* parent = nullptr);
 	~EnginesModel();
 
 	// QAbstractTableModel
@@ -31,7 +34,10 @@ public:
 	// void loadFromSQLite();
 	void loadFromJSON(const QString& path);
 	void saveToJSON(const QString& path) const;
-	const EngineInfo& getByName(const QString& name) const;
+
+	const EnginesModel::Item* getByName(const QString& name) const;
+	EnginesModel::Item* getByName(const QString& name);
+	void updateEngine(const EngineInfo& info);
 private:
-	std::vector<EngineInfo> m_data;
+	std::vector<Item> m_data;
 };

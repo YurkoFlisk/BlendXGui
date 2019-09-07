@@ -9,23 +9,23 @@ using BlendXChess::GameState;
 using BlendXChess::Side;
 
 Game::Game(QObject* parent)
-	: QObject(parent), m_userSide(NULL_COLOR), m_gameType(GameType::None)
-{
-	for (auto& engine : m_engineProc)
-		connect(&engine, &UCIEngine::engineSignal,
-			this, &Game::engineEventCallback);
-}
+	: QObject(parent), m_userSide(NULL_COLOR), m_gameType(GameType::None),
+	m_engineProc {nullptr, nullptr}
+{}
 
 Game::~Game() = default;
 
 void Game::closeGame(void)
 {
-	m_game.clear();
 	if (m_gameType == GameType::PlayerVsEngine)
-		m_engineProc[opposite(m_userSide)].close();
+		closeEngine(opposite(m_userSide));
 	else if (m_gameType == GameType::EngineVsEngine)
-		for (auto& engine : m_engineProc)
-			engine.close();
+	{
+		closeEngine(WHITE);
+		closeEngine(BLACK);
+	}
+
+	m_game.clear();
 	m_gameType = GameType::None;
 }
 
@@ -36,23 +36,26 @@ void Game::startPVP(void)
 	startGame();
 }
 
-void Game::startWithEngine(BlendXChess::Side userSide, QString enginePath)
+void Game::startWithEngine(BlendXChess::Side userSide, UCIEngine* engine)
 {
 	closeGame();
 	if (userSide == NULL_COLOR)
 		userSide = Side(QDateTime::currentDateTime().time().msec() & 1); // random
 	m_gameType = GameType::PlayerVsEngine;
 	m_userSide = userSide;
-	launchEngine(opposite(userSide), enginePath);
+	m_engineProc[opposite(m_userSide)] = engine;
+	connect(engine, &UCIEngine::engineSignal, this, &Game::engineEventCallback);
 }
 
-void Game::startEngineVsEngine(QString whiteEnginePath, QString blackEnginePath)
+void Game::startEngineVsEngine(UCIEngine* whiteEngine, UCIEngine* blackEngine)
 {
 	closeGame();
 	m_gameType = GameType::EngineVsEngine;
 	m_userSide = NULL_COLOR;
-	launchEngine(WHITE, whiteEnginePath);
-	launchEngine(BLACK, blackEnginePath);
+	m_engineProc[WHITE] = whiteEngine;
+	m_engineProc[BLACK] = blackEngine;
+	connect(whiteEngine, &UCIEngine::engineSignal, this, &Game::engineEventCallback);
+	connect(blackEngine, &UCIEngine::engineSignal, this, &Game::engineEventCallback);
 }
 
 void Game::undo(void)
@@ -75,9 +78,9 @@ void Game::goEngine(BlendXChess::Side side)
 {
 	if (side == NULL_COLOR)
 		return;
-	UCIEngine& engine = m_engineProc[side];
-	engine.sendPosition(m_game.getPositionFEN());
-	engine.sendGo();
+	UCIEngine* const engine = m_engineProc[side];
+	engine->sendPosition(m_game.getPositionFEN());
+	engine->sendGo();
 }
 
 bool Game::doMove(const std::string& move)
@@ -86,10 +89,7 @@ bool Game::doMove(const std::string& move)
 		return false;
 	if (auto gs = m_game.getGameState(); gs != GameState::ACTIVE)
 	{
-		QMessageBox::information(this, "Game result",
-			gs == GameState::WHITE_WIN ? "White won" :
-			gs == GameState::BLACK_WIN ? "Black won" :
-			gs == GameState::DRAW ? "Draw" : "Undefined");
+		emit gameFinishedSignal();
 		return false;
 	}
 	const Side currentTurn = m_game.getPosition().getTurn();
@@ -104,18 +104,20 @@ bool Game::doMove(const std::string& move)
 	return true;
 }
 
-bool Game::loadPGN(std::istream& inGame)
+void Game::loadPGN(std::istream& inGame)
 {
-	try
-	{
-		m_game.loadGame(inGame);
-		return true;
-	}
-	catch (const std::exception& exc)
-	{
-		QMessageBox::critical(this, "Error", exc.what());
-		return false;
-	}
+	m_game.loadGame(inGame);
+	emit positionChangedSignal();
+}
+
+void Game::closeEngine(BlendXChess::Side side)
+{
+	UCIEngine*& engine = m_engineProc[opposite(m_userSide)];
+	if (engine == nullptr)
+		return;
+	engine->close();
+	disconnect(engine, &UCIEngine::engineSignal, this, &Game::engineEventCallback);
+	engine = nullptr;
 }
 
 void Game::startGame(void)
@@ -124,76 +126,67 @@ void Game::startGame(void)
 	m_game.reset();
 	if (m_gameType == GameType::PlayerVsEngine)
 	{
-		m_engineProc[opposite(m_userSide)].sendNewGame();
+		m_engineProc[opposite(m_userSide)]->sendNewGame();
 		if (m_userSide == BLACK)
 		{
-			m_engineProc[WHITE].sendPosition("startpos");
-			m_engineProc[WHITE].sendGo(7);
+			m_engineProc[WHITE]->sendPosition("startpos");
+			m_engineProc[WHITE]->sendGo(7);
 		}
 	}
 	else if (m_gameType == GameType::EngineVsEngine)
 	{
-		m_engineProc[WHITE].sendNewGame();
-		m_engineProc[BLACK].sendNewGame();
-		m_engineProc[WHITE].sendPosition("startpos");
-		m_engineProc[WHITE].sendGo();
+		m_engineProc[WHITE]->sendNewGame();
+		m_engineProc[BLACK]->sendNewGame();
+		m_engineProc[WHITE]->sendPosition("startpos");
+		m_engineProc[WHITE]->sendGo();
 	}
 }
 
-void Game::launchEngine(BlendXChess::Side side, QString path)
-{
-	if (side != WHITE && side != BLACK)
-		return;
-	UCIEngine& const engine = m_engineProc[side];
-	engine.reset(path, UCIEngine::LaunchType::Play);
-}
-
-void Game::engineEventCallback(const UCIEventInfo* eventInfo)
+void Game::engineEventCallback(const EngineEvent* eventInfo)
 {
 	UCIEngine* const engine = dynamic_cast<UCIEngine*>(sender());
 	if (engine == nullptr)
 		return; // Strange condition, should not happen. Maybe throw?
 
 	Side engineSide;
-	if (engine == &m_engineProc[WHITE])
+	if (engine == m_engineProc[WHITE])
 		engineSide = WHITE;
-	else if (engine == &m_engineProc[BLACK])
+	else if (engine == m_engineProc[BLACK])
 		engineSide = BLACK;
 	else
 		return; // Unknown sender
+
 	switch (eventInfo->type)
 	{
-	case UCIEventInfo::Type::UciOk:
-		updateEngineInfo(engine->getEngineInfo());
+	case EngineEvent::Type::UciOk:
+		emit engineInitSignal(engine->getEngineInfo());
 		if (engine->getLaunchType() == UCIEngine::LaunchType::Play)
-			loadEngineOptions(engine);
+			emit loadEngineOptions(engine);
 		break;
-	case UCIEventInfo::Type::ReadyOk:
+	case EngineEvent::Type::ReadyOk:
 		if (engine->getState() != UCIEngine::State::Ready)
 			break;
 		if (m_gameType == GameType::PlayerVsEngine)
 			startGame(); // Sender could be only one engine, so start immediately
 		else if (m_gameType == GameType::EngineVsEngine)
 		{ // Check that both engines are loaded before starting game
-			if (m_engineProc[WHITE].getState() == UCIEngine::State::Ready &&
-				m_engineProc[BLACK].getState() == UCIEngine::State::Ready)
+			if (m_engineProc[WHITE]->getState() == UCIEngine::State::Ready &&
+				m_engineProc[BLACK]->getState() == UCIEngine::State::Ready)
 				startGame();
 		}
 		break;
-	case UCIEventInfo::Type::BestMove:
+	case EngineEvent::Type::BestMove:
 		if (engineSide != m_game.getPosition().getTurn())
 			return;
 		if (!doMove(eventInfo->bestMove))
 			return;
-		update();
+		emit positionChangedSignal();
 		break;
-	case UCIEventInfo::Type::Info:
-		m_engineInfoWidget->appendLine(eventInfo->errorText);
-		// TEMPORARY
+	case EngineEvent::Type::Info:
+		emit searchInfoSignal(engineSide, eventInfo->infoDetails);
 		break;
-	case UCIEventInfo::Type::Error:
-		QMessageBox::critical(this, "Engine error",
-			QString::fromStdString(eventInfo->errorText));
+	case EngineEvent::Type::Error:
+		emit engineErrorSignal(engineSide, QString::fromStdString(eventInfo->errorText));
 		break;
 	}
 }

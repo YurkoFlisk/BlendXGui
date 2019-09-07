@@ -232,7 +232,7 @@ void UCIEngine::sProcessInput(void)
 		{
 			if (m_state != State::WaitingUciOk)
 				continue;
-			m_eventInfo.type = UCIEventInfo::Type::UciOk;
+			m_eventInfo.type = EngineEvent::Type::UciOk;
 			emit engineSignal(&m_eventInfo);
 			if (m_launchType == LaunchType::Play)
 				m_state = State::SettingOptions;
@@ -262,14 +262,14 @@ void UCIEngine::sProcessInput(void)
 		else if (cmd == "readyok")
 		{
 			m_state = State::Ready;
-			m_eventInfo.type = UCIEventInfo::Type::ReadyOk;
+			m_eventInfo.type = EngineEvent::Type::ReadyOk;
 			emit engineSignal(&m_eventInfo);
 		}
 		else if (cmd == "bestmove")
 		{
 			readBestmove(iss);
 			m_state = State::Ready;
-			m_eventInfo.type = UCIEventInfo::Type::BestMove;
+			m_eventInfo.type = EngineEvent::Type::BestMove;
 			emit engineSignal(&m_eventInfo);
 		}
 		else if (cmd == "info")
@@ -277,7 +277,7 @@ void UCIEngine::sProcessInput(void)
 			readInfo(iss);
 			getline(iss, m_eventInfo.errorText); // TEMPORARY
 			m_eventInfo.errorText = misc::trim(m_eventInfo.errorText);
-			m_eventInfo.type = UCIEventInfo::Type::Info;
+			m_eventInfo.type = EngineEvent::Type::Info;
 			emit engineSignal(&m_eventInfo);
 		}
 	}
@@ -285,7 +285,7 @@ void UCIEngine::sProcessInput(void)
 
 void UCIEngine::sProcessError(void)
 {
-	m_eventInfo.type = UCIEventInfo::Type::Error;
+	m_eventInfo.type = EngineEvent::Type::Error;
 	m_eventInfo.errorText = m_process.readAllStandardError().toStdString();
 	emit engineSignal(&m_eventInfo);
 }

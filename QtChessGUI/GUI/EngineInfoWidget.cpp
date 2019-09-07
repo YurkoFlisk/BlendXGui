@@ -1,4 +1,5 @@
 #include "EngineInfoWidget.h"
+#include "Core/UCIEngine.h"
 
 EngineInfoWidget::EngineInfoWidget(QWidget *parent)
 	: QTextEdit(parent)
@@ -6,10 +7,9 @@ EngineInfoWidget::EngineInfoWidget(QWidget *parent)
 	setReadOnly(true);
 }
 
-EngineInfoWidget::~EngineInfoWidget(void)
-{}
+EngineInfoWidget::~EngineInfoWidget() = default;
 
-void EngineInfoWidget::clear(void)
+void EngineInfoWidget::clear()
 {
 	QTextEdit::clear();
 }
@@ -17,4 +17,9 @@ void EngineInfoWidget::clear(void)
 void EngineInfoWidget::appendLine(const std::string& str)
 {
 	QTextEdit::append(QString::fromStdString(str));
+}
+
+void EngineInfoWidget::setInfo(BlendXChess::Side side, const SearchInfoDetails& info)
+{
+
 }
