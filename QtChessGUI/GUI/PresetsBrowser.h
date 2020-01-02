@@ -3,6 +3,10 @@
 #include <QDialog>
 #include "Core/PresetsModel.h"
 
+class QLineEdit;
+class QHBoxLayout;
+class QListView;
+
 class EngineParamsWidget : public QWidget
 {
 	Q_OBJECT
@@ -25,12 +29,14 @@ public:
 	PresetsBrowser(PresetsModel* model, bool selecting = false, QWidget *parent = nullptr);
 	~PresetsBrowser();
 
-	QString getCurrentId();
+	int getCurrentIdx();
 private slots:
 	void sSelectionChanged(const QItemSelection& selected,
 		const QItemSelection& deselected);
+	void sOk();
 	void sAdd();
 	void sRemove();
+	void sPresets();
 	// Returns whether save was successful
 	bool sSave();
 private:
@@ -47,10 +53,10 @@ private:
 
 	bool m_selecting;
 	int m_selectedIdx;
-	QLineEdit* m_nameLE;
 	PresetsModel* m_presets;
+	QLineEdit* m_nameLE;
 	QWidget* m_presetPropWidget;
 	QHBoxLayout* m_presetsLayout;
-	class QListView* m_presetsLV;
-	class EngineParamsWidget* m_params;
+	QListView* m_presetsLV;
+	EngineParamsWidget* m_params;
 };

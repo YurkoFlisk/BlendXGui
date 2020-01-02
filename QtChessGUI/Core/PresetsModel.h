@@ -24,11 +24,13 @@ struct EnginePreset
 	EngineOptionValues optionValues; // Predefined option set for the engine
 };
 
-class PresetsModel : public QAbstractTableModel
+class PresetsModel
+	: public QAbstractTableModel
 {
 public:
 	static constexpr int COLUMN_COUNT = 1;
 
+	PresetsModel(EnginesModel& engines, const QString& engineName);
 	PresetsModel(const std::vector<EnginePreset>& presetsObj,
 		EnginesModel& engines, const QString& engineName);
 	PresetsModel(const QJsonArray& presetsObj,

@@ -6,24 +6,17 @@ EngineParamsWidget::EngineParamsWidget(const EngineOptions& options,
 	const EngineOptionValues* initOptValues, QWidget* parent)
 	: QWidget(parent)
 {
-	QFormLayout
-		* checkLayout = new QFormLayout,
-		* comboLayout = new QFormLayout,
-		* spinLayout = new QFormLayout,
-		* stringLayout = new QFormLayout;
-	QGroupBox
-		* checkGB = new QGroupBox(tr("Check options")),
-		* comboGB = new QGroupBox(tr("Combo options")),
-		* spinGB = new QGroupBox(tr("Spin options")),
-		* stringGB = new QGroupBox(tr("String options"));
+	QFormLayout* optionsLayout = new QFormLayout;
+	QGroupBox* optionsGB = new QGroupBox(tr("Options"));
 	QCheckBox* checkEdit;
 	QComboBox* comboEdit;
 	QSpinBox* spinEdit;
 	QLineEdit* stringEdit;
 	QWidget* editWidget;
+
 	for (const auto& [name, option] : options)
 	{
-		const QString qname = QString::fromStdString(name) + ":";
+		QString qname = QString::fromStdString(name);
 		switch (option.getType())
 		{
 		case UciOption::Type::Check:
@@ -31,7 +24,6 @@ EngineParamsWidget::EngineParamsWidget(const EngineOptions& options,
 			checkEdit->setChecked(initOptValues
 				? std::get<bool>(initOptValues->at(name))
 				: option.getDefaultBool());
-			checkLayout->addRow(qname, checkEdit);
 			break;
 		case UciOption::Type::Combo:
 			editWidget = comboEdit = new QComboBox;
@@ -40,48 +32,33 @@ EngineParamsWidget::EngineParamsWidget(const EngineOptions& options,
 			comboEdit->setCurrentText(QString::fromStdString(initOptValues
 				? std::get<std::string>(initOptValues->at(name))
 				: option.getDefaultString()));
-			comboLayout->addRow(qname, comboEdit);
 			break;
 		case UciOption::Type::Spin:
+			qname += tr("[min: %1, max: %2]").arg(
+				QString::number(option.getMin()),
+				QString::number(option.getMax()));
 			editWidget = spinEdit = new QSpinBox;
 			spinEdit->setMinimum(option.getMin());
 			spinEdit->setMaximum(option.getMax());
 			spinEdit->setValue(initOptValues
 				? std::get<int>(initOptValues->at(name))
 				: option.getDefaultInt());
-			spinLayout->addRow(qname, spinEdit);
 			break;
 		case UciOption::Type::String:
 			editWidget = stringEdit = new QLineEdit;
 			stringEdit->setText(QString::fromStdString(initOptValues
 				? std::get<std::string>(initOptValues->at(name))
 				: option.getDefaultString()));
-			stringLayout->addRow(qname, stringEdit);
 			break;
+		default:
+			continue;
 		}
+		qname += ":";
+		optionsLayout->addRow(qname, editWidget);
 		m_optionEdits.emplace(name, std::pair{ option.getType(), editWidget });
 	}
 
-	checkGB->setLayout(checkLayout);
-	comboGB->setLayout(comboLayout);
-	spinGB->setLayout(spinLayout);
-	stringGB->setLayout(stringLayout);
-
-	QHBoxLayout* optionsLayout = new QHBoxLayout;
-	optionsLayout->addWidget(checkGB);
-	optionsLayout->addWidget(comboGB);
-	optionsLayout->addWidget(spinGB);
-	optionsLayout->addWidget(stringGB);
 	setLayout(optionsLayout);
-
-	if (checkLayout->isEmpty())
-		checkGB->hide();
-	if (comboLayout->isEmpty())
-		comboGB->hide();
-	if (spinLayout->isEmpty())
-		spinGB->hide();
-	if (stringLayout->isEmpty())
-		stringGB->hide();
 }
 
 EngineParamsWidget::~EngineParamsWidget() = default;
@@ -138,15 +115,15 @@ PresetsBrowser::PresetsBrowser(PresetsModel* model, bool selecting, QWidget* par
 	buttonsLayout->addWidget(savePB);
 	buttonsLayout->addStretch();
 	buttonsLayout->addWidget(okPB);
-	connect(okPB, &QPushButton::pressed, this, QDialog::accept);
-	connect(savePB, &QPushButton::pressed, this, PresetsBrowser::sSave);
-	connect(addPB, &QPushButton::pressed, this, PresetsBrowser::sAdd);
-	connect(removePB, &QPushButton::pressed, this, PresetsBrowser::sRemove);
+	connect(okPB, &QPushButton::pressed, this, &PresetsBrowser::sOk);
+	connect(savePB, &QPushButton::pressed, this, &PresetsBrowser::sSave);
+	connect(addPB, &QPushButton::pressed, this, &PresetsBrowser::sAdd);
+	connect(removePB, &QPushButton::pressed, this, &PresetsBrowser::sRemove);
 	if (selecting)
 	{
 		QPushButton* cancelPB = new QPushButton(tr("Cancel"));
 		buttonsLayout->addWidget(cancelPB);
-		connect(cancelPB, &QPushButton::pressed, this, QDialog::reject);
+		connect(cancelPB, &QPushButton::pressed, this, &QDialog::reject);
 	}
 
 	QVBoxLayout* mainLayout = new QVBoxLayout;
@@ -157,9 +134,9 @@ PresetsBrowser::PresetsBrowser(PresetsModel* model, bool selecting, QWidget* par
 
 PresetsBrowser::~PresetsBrowser() = default;
 
-QString PresetsBrowser::getCurrentId()
+int PresetsBrowser::getCurrentIdx()
 {
-	return m_presets->data(m_presetsLV->currentIndex()).toString();
+	return m_selectedIdx;
 }
 
 void PresetsBrowser::sSelectionChanged(const QItemSelection& selected,
@@ -175,6 +152,13 @@ void PresetsBrowser::sSelectionChanged(const QItemSelection& selected,
 	else
 		m_selectedIdx = selected.indexes().front().row();
 	updatePresetPropWidget();
+}
+
+void PresetsBrowser::sOk()
+{
+	if (!checkUnsaved())
+		return;
+	accept();
 }
 
 void PresetsBrowser::sAdd()
@@ -246,6 +230,7 @@ bool PresetsBrowser::checkUnsaved()
 	case QMessageBox::Discard:
 		return true; // User decided not to save
 	}
+	return false; // Should not happen
 }
 
 void PresetsBrowser::updatePresetPropWidget()
@@ -270,8 +255,13 @@ void PresetsBrowser::updatePresetPropWidget()
 	}
 	newPresetPropWidget->setLayout(presetPropLayout);
 	// Replace a widget and delete layout item and old widget
-	delete m_presetsLayout->replaceWidget(m_presetPropWidget, newPresetPropWidget);
-	delete m_presetPropWidget;
+	if (m_presetPropWidget)
+	{
+		delete m_presetsLayout->replaceWidget(m_presetPropWidget, newPresetPropWidget);
+		delete m_presetPropWidget;
+	}
+	else
+		m_presetsLayout->addWidget(newPresetPropWidget);
 	m_presetPropWidget = newPresetPropWidget;
 }
 

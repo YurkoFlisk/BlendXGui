@@ -1,7 +1,6 @@
 #pragma once
 
 #include <QtWidgets>
-#include <QtSql>
 
 class OpenDBBrowser : public QDialog
 {

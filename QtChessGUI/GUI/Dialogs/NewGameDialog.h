@@ -1,7 +1,7 @@
 #pragma once
+
 #include <QtWidgets>
 #include <QDialog>
-#include <QtSql>
 #include "Engine/basic_types.h"
 
 class EnginePreset;

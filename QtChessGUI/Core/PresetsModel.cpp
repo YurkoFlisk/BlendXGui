@@ -9,6 +9,10 @@ EnginePreset EnginePreset::defaultFor(const EngineInfo& engineInfo, const QStrin
 	return ret;
 }
 
+PresetsModel::PresetsModel(EnginesModel& engines, const QString& engineName)
+	: QAbstractTableModel(&engines), m_engines(engines), m_engineName(engineName)
+{}
+
 PresetsModel::PresetsModel(const std::vector<EnginePreset>& presetsObj,
 	EnginesModel& engines, const QString& engineName)
 	: QAbstractTableModel(&engines), m_engines(engines), m_engineName(engineName),
@@ -24,17 +28,17 @@ PresetsModel::PresetsModel(const QJsonArray& object,
 
 PresetsModel::~PresetsModel() = default;
 
-int PresetsModel::rowCount(const QModelIndex& parent = QModelIndex()) const
+int PresetsModel::rowCount(const QModelIndex& parent) const
 {
 	return m_data.size();
 }
 
-int PresetsModel::columnCount(const QModelIndex& parent = QModelIndex()) const
+int PresetsModel::columnCount(const QModelIndex& parent) const
 {
 	return COLUMN_COUNT;
 }
 
-QVariant PresetsModel::data(const QModelIndex& index, int role = Qt::DisplayRole) const
+QVariant PresetsModel::data(const QModelIndex& index, int role) const
 {
 	if (!index.isValid())
 		return QVariant();
@@ -50,7 +54,7 @@ QVariant PresetsModel::data(const QModelIndex& index, int role = Qt::DisplayRole
 		default: return QVariant();
 		}
 	else
-		QAbstractTableModel::data(index, role);
+		return QAbstractTableModel::data(index, role);
 }
 
 const EnginePreset& PresetsModel::operator[](int idx) const
@@ -92,9 +96,10 @@ bool PresetsModel::eraseRow(int row)
 
 int PresetsModel::findByName(const QString& name)
 {
-	auto it = std::find_if(m_data.begin(), m_data.end(), [&](const EnginePreset& ep) {
-		return ep.name == name;
-	});
+	auto it = std::find_if(m_data.begin(), m_data.end(),
+		[&](const EnginePreset& ep) {
+			return ep.name == name;
+		});
 	if (it == m_data.end())
 		return -1;
 	return static_cast<int>(it - m_data.begin());
@@ -108,7 +113,7 @@ bool PresetsModel::setPreset(int row, const EnginePreset& preset)
 		return false;
 
 	const int nameRow = findByName(preset.name);
-	if (nameRow != row && nameRow != -1)
+	if (nameRow != -1 && nameRow != row)
 		return false;
 
 	m_data[row] = preset;

@@ -75,6 +75,9 @@
     <ClCompile Include="Core\PresetsModel.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Core\Clock.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="GUI\BoardWidget.h">
@@ -111,6 +114,9 @@
       <Filter>Header Files</Filter>
     </QtMoc>
     <QtMoc Include="GUI\PresetsBrowser.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="Core\Clock.h">
       <Filter>Header Files</Filter>
     </QtMoc>
   </ItemGroup>

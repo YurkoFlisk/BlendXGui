@@ -1,4 +1,3 @@
-#include <QtSql>
 #include "SaveDBBrowser.h"
 #include "GUI/BoardWidget.h"
 #include "GUI/QtChessGUI.h"

@@ -55,6 +55,20 @@ void Game::reset(void)
 }
 
 //============================================================
+// Signalize that timeout has happened (not a very good
+// design probably. Maybe include clock and check timeout here?)
+//============================================================
+void Game::timeout(void)
+{
+	if (gameState != GameState::ACTIVE)
+		return;
+	if (pos.getTurn() == WHITE)
+		gameState = GameState::BLACK_WIN;
+	else // BLACK
+		gameState = GameState::WHITE_WIN;
+}
+
+//============================================================
 // Whether position is draw by insufficient material
 //============================================================
 bool Game::drawByMaterial(void) const

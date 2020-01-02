@@ -96,12 +96,7 @@ QJsonObject EngineInfo::toJSON(void) const
 
 UCIEngine::UCIEngine(void)
 	: m_state(State::NotSet), m_launchType(LaunchType::NotSet)
-{
-	connect(&m_process, &QProcess::readyReadStandardOutput,
-		this, UCIEngine::sProcessInput);
-	connect(&m_process, &QProcess::readyReadStandardError,
-		this, UCIEngine::sProcessError);
-}
+{}
 
 UCIEngine::UCIEngine(QString path, LaunchType launchType)
 	: m_state(State::NotSet), m_launchType(LaunchType::NotSet)
@@ -110,7 +105,50 @@ UCIEngine::UCIEngine(QString path, LaunchType launchType)
 }
 
 UCIEngine::~UCIEngine(void)
-{}
+{
+	close();
+}
+
+void UCIEngine::initialize()
+{
+	m_process.write("uci\n");
+	while (true)
+	{
+		if (!m_process.waitForReadyRead(10000))
+			break; // maybe throw?
+		std::string line = m_process.readLine().toStdString(), cmd, token;
+		std::istringstream iss(line);
+		iss >> cmd;
+		if (cmd == "uciok")
+			break;
+		else if (cmd == "id")
+		{
+			iss >> token;
+			if (token == "name")
+			{
+				std::getline(iss, token);
+				m_info.uciname = QString::fromStdString(misc::trim(token));
+			}
+			else if (token == "author")
+			{
+				std::getline(iss, token);
+				m_info.author = QString::fromStdString(misc::trim(token));
+			}
+		}
+		else if (cmd == "option")
+		{ // should be m_state == State::WaitingUciOk
+			UciOption option(iss);
+			if (!m_info.options.insert({ option.getName(), option }).second)
+				; // Duplicate option name
+		}
+		else
+			;
+	}
+	connect(&m_process, &QProcess::readyReadStandardOutput,
+		this, &UCIEngine::sProcessInput);
+	connect(&m_process, &QProcess::readyReadStandardError,
+		this, &UCIEngine::sProcessError);
+}
 
 void UCIEngine::close(void)
 {
@@ -119,6 +157,12 @@ void UCIEngine::close(void)
 		m_process.write("stop\n"); // In case search is in process
 		m_process.write("quit\n");
 		m_process.closeWriteChannel();
+		// Have to disconnect so, in case of a reset, connections
+		// will not be active until initialize is called
+		disconnect(&m_process, &QProcess::readyReadStandardOutput,
+			this, &UCIEngine::sProcessInput);
+		disconnect(&m_process, &QProcess::readyReadStandardError,
+			this, &UCIEngine::sProcessError);
 		if (!m_process.waitForFinished(2000))
 		{
 			m_process.kill();
@@ -171,15 +215,51 @@ void UCIEngine::sendPosition(const std::string& positionFEN)
 void UCIEngine::sendNewGame(void)
 {
 	m_process.write("ucinewgame\n");
+	doWhenReady([this] {
+		m_eventInfo.type = EngineEvent::Type::NewGameStarted;
+		emit engineSignal(&m_eventInfo);
+	});
 }
 
-void UCIEngine::sendIsReady(void)
-{
-	if (m_state != State::SettingOptions)
-		return;
-	m_process.write("isready\n");
-	m_state = State::WaitingReadyOk;
-}
+//void UCIEngine::sendIsReady(void)
+//{
+//	if (m_state != State::SettingOptions)
+//		return;
+//	m_process.write("isready\n");
+//	m_state = State::WaitingReadyOk;
+//}
+
+//void UCIEngine::go(Clock& clock, int depth)
+//{
+//	std::string line("go depth " + std::to_string(depth) + "\n");
+//	m_process.write(line.data()); // TEMPORARILY
+//	m_process.waitForBytesWritten(10000);
+//
+//	clock.toggle();
+//	while (true)
+//	{
+//		while (!clock.timeout() && !m_process.canReadLine()) // Maybe redundant, but safe
+//			m_process.waitForReadyRead(clock.remainingTime().count());
+//		if (clock.timeout())
+//			break;
+//
+//		std::string line = m_process.readLine().toStdString(), cmd;
+//		std::istringstream iss(line);
+//		iss >> cmd;
+//		if (cmd == "bestmove")
+//		{
+//			readBestmove(iss);
+//			break;
+//		}
+//		else if (cmd == "info")
+//		{
+//			readInfo(iss);
+//			getline(iss, m_eventInfo.errorText); // TEMPORARY
+//			m_eventInfo.errorText = misc::trim(m_eventInfo.errorText);
+//			emit engineSignal(&m_eventInfo);
+//		}
+//	}
+//}
 
 void UCIEngine::sendGo(int depth)
 {
@@ -191,6 +271,12 @@ void UCIEngine::sendGo(int depth)
 void UCIEngine::sendStop(void)
 {
 	m_process.write("stop\n");
+}
+
+void UCIEngine::doWhenReady(ReadyOkCallback rok_cb)
+{
+	m_process.write("isready");
+	m_readyOkCallback = rok_cb;
 }
 
 void UCIEngine::readBestmove(std::istream& iss)
@@ -225,50 +311,56 @@ void UCIEngine::sProcessInput(void)
 {
 	while (m_process.canReadLine())
 	{
-		std::string line = m_process.readLine().toStdString(), cmd, token;
+		std::string line = m_process.readLine().toStdString(), cmd;
 		std::istringstream iss(line);
 		iss >> cmd;
-		if (cmd == "uciok")
-		{
-			if (m_state != State::WaitingUciOk)
-				continue;
-			m_eventInfo.type = EngineEvent::Type::UciOk;
-			emit engineSignal(&m_eventInfo);
-			if (m_launchType == LaunchType::Play)
-				m_state = State::SettingOptions;
-			else if (m_launchType == LaunchType::Info)
-				close();
-		}
-		else if (cmd == "id")
-		{ // should be m_state == State::WaitingUciOk
-			iss >> token;
-			if (token == "name")
+		//if (cmd == "uciok")
+		//{
+		//	if (m_state != State::WaitingUciOk)
+		//		continue;
+		//	m_eventInfo.type = EngineEvent::Type::UciOk;
+		//	emit engineSignal(&m_eventInfo);
+		//	if (m_launchType == LaunchType::Play)
+		//		m_state = State::SettingOptions;
+		//	else if (m_launchType == LaunchType::Info)
+		//		close();
+		//}
+		//else if (cmd == "id")
+		//{ // should be m_state == State::WaitingUciOk
+		//	iss >> token;
+		//	if (token == "name")
+		//	{
+		//		std::getline(iss, token);
+		//		m_info.uciname = QString::fromStdString(token);
+		//	}
+		//	else if (token == "author")
+		//	{
+		//		std::getline(iss, token);
+		//		m_info.author = QString::fromStdString(token);
+		//	}
+		//}
+		//else if (cmd == "option")
+		//{ // should be m_state == State::WaitingUciOk
+		//	UciOption option(iss);
+		//	if (!m_info.options.insert({ option.getName(), option }).second)
+		//		; // Duplicate option name
+		//}
+		if (cmd == "readyok")
+		{	
+			if (m_readyOkCallback)
 			{
-				std::getline(iss, token);
-				m_info.uciname = QString::fromStdString(token);
+				auto rok_cb = std::move(m_readyOkCallback);
+				m_readyOkCallback = nullptr; // Action is one-time
+				rok_cb();
 			}
-			else if (token == "author")
-			{
-				std::getline(iss, token);
-				m_info.author = QString::fromStdString(token);
-			}
-		}
-		else if (cmd == "option")
-		{ // should be m_state == State::WaitingUciOk
-			UciOption option(iss);
-			if (!m_info.options.insert({ option.getName(), option }).second)
-				; // Duplicate option name
-		}
-		else if (cmd == "readyok")
-		{
-			m_state = State::Ready;
+			/*m_state = State::Ready;
 			m_eventInfo.type = EngineEvent::Type::ReadyOk;
-			emit engineSignal(&m_eventInfo);
+			emit engineSignal(&m_eventInfo);*/
 		}
 		else if (cmd == "bestmove")
 		{
 			readBestmove(iss);
-			m_state = State::Ready;
+			/*m_state = State::Ready;*/
 			m_eventInfo.type = EngineEvent::Type::BestMove;
 			emit engineSignal(&m_eventInfo);
 		}

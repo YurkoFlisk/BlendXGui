@@ -52,6 +52,8 @@ EngineParamsDialog::EngineParamsDialog(QWidget *parent,
 			stringEdit->setText(QString::fromStdString(option.getDefaultString()));
 			stringLayout->addRow(qname, stringEdit);
 			break;
+		default:
+			break;
 		}
 		m_optionEdits.emplace(name, std::pair{ option.getType(), editWidget });
 	}
@@ -92,5 +94,23 @@ EngineParamsDialog::~EngineParamsDialog() = default;
 
 UciOption::ValueType EngineParamsDialog::getOptionValue(const std::string& name)
 {
-	
+	if (auto it = m_optionEdits.find(name); it == m_optionEdits.end())
+		return UciOption::ValueType();
+	else
+	{
+		const auto& [type, editWidget] = it->second;
+		switch (type)
+		{
+		case UciOption::Type::Check:
+			return static_cast<QCheckBox*>(editWidget)->isChecked();
+		case UciOption::Type::Combo:
+			return static_cast<QComboBox*>(editWidget)->currentText().toStdString();
+		case UciOption::Type::Spin:
+			return static_cast<QSpinBox*>(editWidget)->value();
+		case UciOption::Type::String:
+			return static_cast<QLineEdit*>(editWidget)->text().toStdString();
+		default:
+			return UciOption::ValueType();
+		}
+	}
 }

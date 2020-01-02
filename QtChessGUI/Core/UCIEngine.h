@@ -4,6 +4,7 @@
 #include <unordered_set>
 #include "Engine/ucioption.h"
 #include "Engine/engine.h"
+#include "Clock.h"
 
 using EngineOptions = std::unordered_map<std::string, UciOption>;
 using EngineOptionValues = std::unordered_map<std::string, UciOption::ValueType>;
@@ -15,6 +16,8 @@ struct EngineInfo
 {
 	static EngineInfo fromJSON(QJsonObject obj);
 	QJsonObject toJSON(void) const;
+
+	bool operator==(const EngineInfo& rhs) const = default;
 
 	QString name;
 	QString uciname;
@@ -38,7 +41,7 @@ struct SearchInfoDetails
 struct EngineEvent
 {
 	enum struct Type {
-		None, Error, UciOk, ReadyOk, BestMove, Info
+		None, Error, UciOk, NewGameStarted, BestMove, Info
 	};
 
 	Type type;
@@ -48,11 +51,12 @@ struct EngineEvent
 	std::string errorText;
 };
 
-class UCIEngine : QObject
+class UCIEngine : public QObject
 {
 	Q_OBJECT
-
 public:
+	using ReadyOkCallback = std::function<void(void)>;
+
 	enum class State {
 		NotSet, WaitingUciOk, SettingOptions, WaitingReadyOk, Ready, Searching
 	};
@@ -71,15 +75,18 @@ public:
 	inline const EngineOptions& getOptions(void) const noexcept;
 	inline LaunchType getLaunchType(void) const noexcept;
 
+	void initialize();
+
 	void close(void);
 	void reset(QString path, LaunchType type);
 	void setOptionFromString(const std::string& name, const std::string& value);
 	void setOption(const std::string& name, const UciOption::ValueType& value);
 	void sendPosition(const std::string& positionFEN);
 	void sendNewGame(void);
-	void sendIsReady(void);
+	/*void sendIsReady(void);*/
 	void sendGo(int depth = 10);
 	void sendStop(void);
+	void doWhenReady(ReadyOkCallback rok_cb);
 signals:
 	// Signal for notifying about engine events, which is
 	// triggered after appropriate input from the process
@@ -96,6 +103,7 @@ private:
 	// Called when process sends some info into 
 	void sProcessError(void);
 	// Data
+	ReadyOkCallback m_readyOkCallback; // One-time callback for readyOk
 	EngineInfo m_info; // As given by current process
 	State m_state;
 	LaunchType m_launchType;

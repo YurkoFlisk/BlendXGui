@@ -15,15 +15,55 @@ Game::Game(QObject* parent)
 
 Game::~Game() = default;
 
+//void Game::gameLoop()
+//{
+//	using namespace std::chrono;
+//
+//	m_game.reset();
+//	for (Side side : { WHITE, BLACK })
+//		if (isEngineSide(side))
+//		{
+//			// m_engineProc[side]->initialize();
+//			// ... Fill options
+//			m_engineProc[side]->sendNewGame();
+//		}
+//
+//	std::unique_lock moveLock(moveMutex);
+//
+//	while (m_game.getGameState() == BlendXChess::GameState::ACTIVE)
+//	{
+//		const Side turn = m_game.getPosition().getTurn();
+//		Clock& clock = m_clock[turn];
+//		if (isEngineTurn())
+//		{
+//			m_engineProc[turn]->sendPosition(m_game.getPositionFEN());
+//			m_engineProc[turn]->go(clock);
+//		}
+//		else // User turn
+//		{
+//			userMoved = false;
+//			clock.toggle();
+//			userMovedCV.wait_for(moveLock, clock.remainingTime(), [this] {return userMoved; });
+//			clock.toggle();
+//		}
+//		if (clock.timeout())
+//		{
+//			m_game.timeout();
+//			break;
+//		}
+//	}
+//}
+
 void Game::closeGame(void)
 {
-	if (m_gameType == GameType::PlayerVsEngine)
+	/*if (m_gameType == GameType::PlayerVsEngine)
 		closeEngine(opposite(m_userSide));
 	else if (m_gameType == GameType::EngineVsEngine)
 	{
 		closeEngine(WHITE);
 		closeEngine(BLACK);
-	}
+	}*/
+	m_engineProc[WHITE] = m_engineProc[BLACK] = nullptr;
 
 	m_game.clear();
 	m_gameType = GameType::None;
@@ -45,6 +85,9 @@ void Game::startWithEngine(BlendXChess::Side userSide, UCIEngine* engine)
 	m_userSide = userSide;
 	m_engineProc[opposite(m_userSide)] = engine;
 	connect(engine, &UCIEngine::engineSignal, this, &Game::engineEventCallback);
+
+	m_engGameStarted[WHITE] = m_engGameStarted[BLACK] = false; // In fact, redundant
+	engine->sendNewGame();
 }
 
 void Game::startEngineVsEngine(UCIEngine* whiteEngine, UCIEngine* blackEngine)
@@ -56,6 +99,10 @@ void Game::startEngineVsEngine(UCIEngine* whiteEngine, UCIEngine* blackEngine)
 	m_engineProc[BLACK] = blackEngine;
 	connect(whiteEngine, &UCIEngine::engineSignal, this, &Game::engineEventCallback);
 	connect(blackEngine, &UCIEngine::engineSignal, this, &Game::engineEventCallback);
+
+	m_engGameStarted[WHITE] = m_engGameStarted[BLACK] = false;
+	whiteEngine->sendNewGame();
+	blackEngine->sendNewGame();
 }
 
 void Game::undo(void)
@@ -85,22 +132,31 @@ void Game::goEngine(BlendXChess::Side side)
 
 bool Game::doMove(const std::string& move)
 {
+	Clock* clock = &m_clock[currentTurn()]; // Before move
+
 	if (!m_game.DoMove(move, MoveFormat::FMT_UCI))
 		return false;
+	clock->pause();
+
 	if (auto gs = m_game.getGameState(); gs != GameState::ACTIVE)
 	{
 		emit gameFinishedSignal();
 		return false;
 	}
-	const Side currentTurn = m_game.getPosition().getTurn();
+	else
+		emit positionChangedSignal();
+
+	clock = &m_clock[currentTurn()]; // After move
+
 	if (m_gameType == GameType::PlayerVsEngine)
 	{
 		const Side engineSide = opposite(m_userSide);
-		if (engineSide == currentTurn)
-			goEngine(currentTurn);
+		if (engineSide == currentTurn())
+			goEngine(currentTurn());
 	}
 	else if (m_gameType == GameType::EngineVsEngine)
-		goEngine(currentTurn);
+		goEngine(currentTurn());
+	clock->resume();
 	return true;
 }
 
@@ -110,15 +166,15 @@ void Game::loadPGN(std::istream& inGame)
 	emit positionChangedSignal();
 }
 
-void Game::closeEngine(BlendXChess::Side side)
-{
-	UCIEngine*& engine = m_engineProc[opposite(m_userSide)];
-	if (engine == nullptr)
-		return;
-	engine->close();
-	disconnect(engine, &UCIEngine::engineSignal, this, &Game::engineEventCallback);
-	engine = nullptr;
-}
+//void Game::closeEngine(BlendXChess::Side side)
+//{
+//	UCIEngine*& engine = m_engineProc[opposite(m_userSide)];
+//	if (engine == nullptr)
+//		return;
+//	engine->close();
+//	disconnect(engine, &UCIEngine::engineSignal, this, &Game::engineEventCallback);
+//	engine = nullptr;
+//}
 
 void Game::startGame(void)
 {
@@ -126,7 +182,6 @@ void Game::startGame(void)
 	m_game.reset();
 	if (m_gameType == GameType::PlayerVsEngine)
 	{
-		m_engineProc[opposite(m_userSide)]->sendNewGame();
 		if (m_userSide == BLACK)
 		{
 			m_engineProc[WHITE]->sendPosition("startpos");
@@ -135,11 +190,22 @@ void Game::startGame(void)
 	}
 	else if (m_gameType == GameType::EngineVsEngine)
 	{
-		m_engineProc[WHITE]->sendNewGame();
-		m_engineProc[BLACK]->sendNewGame();
 		m_engineProc[WHITE]->sendPosition("startpos");
 		m_engineProc[WHITE]->sendGo();
 	}
+	for (Side side : {WHITE, BLACK})
+		connect(&m_clock[side], &Clock::timeout,
+			[this, side] {playerTimeout(side); });
+	m_clock[WHITE].resume();
+}
+
+void Game::playerTimeout(BlendXChess::Side side)
+{
+	Q_ASSERT(side == currentTurn());
+	if (isEngineTurn())
+		m_engineProc[currentTurn()]->sendStop();
+	m_game.timeout();
+	emit gameFinishedSignal();
 }
 
 void Game::engineEventCallback(const EngineEvent* eventInfo)
@@ -158,29 +224,26 @@ void Game::engineEventCallback(const EngineEvent* eventInfo)
 
 	switch (eventInfo->type)
 	{
-	case EngineEvent::Type::UciOk:
-		emit engineInitSignal(engine->getEngineInfo());
-		if (engine->getLaunchType() == UCIEngine::LaunchType::Play)
-			emit loadEngineOptions(engine);
-		break;
-	case EngineEvent::Type::ReadyOk:
-		if (engine->getState() != UCIEngine::State::Ready)
-			break;
+	//case EngineEvent::Type::UciOk:
+	//	emit engineInitSignal(engine->getEngineInfo());
+	//	if (engine->getLaunchType() == UCIEngine::LaunchType::Play)
+	//		emit loadEngineOptions(engine);
+	//	break;
+	case EngineEvent::Type::NewGameStarted:
+		m_engGameStarted[engineSide] = true;
 		if (m_gameType == GameType::PlayerVsEngine)
 			startGame(); // Sender could be only one engine, so start immediately
 		else if (m_gameType == GameType::EngineVsEngine)
-		{ // Check that both engines are loaded before starting game
-			if (m_engineProc[WHITE]->getState() == UCIEngine::State::Ready &&
-				m_engineProc[BLACK]->getState() == UCIEngine::State::Ready)
+		{ // Check that both engines finished ucinewgame before starting the game
+			if (m_engGameStarted[WHITE] && m_engGameStarted[BLACK])
 				startGame();
 		}
 		break;
 	case EngineEvent::Type::BestMove:
-		if (engineSide != m_game.getPosition().getTurn())
+		if (engineSide != currentTurn())
 			return;
 		if (!doMove(eventInfo->bestMove))
 			return;
-		emit positionChangedSignal();
 		break;
 	case EngineEvent::Type::Info:
 		emit searchInfoSignal(engineSide, eventInfo->infoDetails);

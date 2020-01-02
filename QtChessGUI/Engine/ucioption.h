@@ -43,6 +43,8 @@ public:
 	UciOption(std::istream& istr);
 	~UciOption();
 
+	bool operator==(const UciOption&) const = default;
+
 	// Getters
 	inline std::string getName() const noexcept;
 	inline Type getType() const noexcept;

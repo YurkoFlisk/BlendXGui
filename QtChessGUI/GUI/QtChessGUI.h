@@ -1,6 +1,5 @@
 #pragma once
 
-#include <QtSql>
 #include <QMainWindow>
 #include "engine/basic_types.h"
 
@@ -21,7 +20,7 @@ public:
 	inline BoardWidget* getBoardWidget() const;
 private slots:
 	void sEngineError(BlendXChess::Side side, QString errorText);
-	void sEngineInfo(BlendXChess::Side side, const struct SearchInfoDetails& info);
+	void sSearchInfo(BlendXChess::Side side, const struct SearchInfoDetails& info);
 
 	void sNewGame();
 	void sAbout();
@@ -62,7 +61,6 @@ private:
 	QAction* m_presetsAction;
 	QAction* m_quitAction;
 	QAction* m_aboutAction;
-	QSqlDatabase db;
 };
 
 inline BoardWidget* QtChessGUI::getBoardWidget() const

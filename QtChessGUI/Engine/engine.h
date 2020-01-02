@@ -59,6 +59,9 @@ namespace BlendXChess
 		void clear(void);
 		// Reset game
 		void reset(void);
+		// Signalize that timeout has happened (not a very good
+		// design probably. Maybe include clock and check timeout here?)
+		void timeout(void);
 		// Update game state
 		void updateGameState(void);
 		// Convert move from given string format

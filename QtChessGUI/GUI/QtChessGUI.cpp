@@ -30,7 +30,7 @@ QtChessGUI::QtChessGUI(QWidget* parent)
 	m_game = new Game(this);
 
 	connect(m_game, &Game::engineErrorSignal, this, &QtChessGUI::sEngineError);
-	connect(m_game, &Game::searchInfoSignal, this, &QtChessGUI::sEngineInfo);
+	connect(m_game, &Game::searchInfoSignal, this, &QtChessGUI::sSearchInfo);
 	connect(m_game, &Game::engineInitSignal, m_engines, &EnginesModel::updateEngine);
 
 	m_newDialog = new NewGameDialog(this);
@@ -157,7 +157,7 @@ void QtChessGUI::sEngineError(BlendXChess::Side side, QString errorText)
 	QMessageBox::critical(this, tr("Engine error"), errorText);
 }
 
-void QtChessGUI::sEngineInfo(BlendXChess::Side side, const SearchInfoDetails& info)
+void QtChessGUI::sSearchInfo(BlendXChess::Side side, const SearchInfoDetails& info)
 {
 	m_engineInfoWidget->setInfo(side, info);
 }
