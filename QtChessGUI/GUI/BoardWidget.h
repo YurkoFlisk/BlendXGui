@@ -18,7 +18,10 @@ public:
 	BoardWidget(Game* game, QWidget *parent = nullptr);
 	~BoardWidget(void);
 
-	inline const Game* getGame(void) const noexcept;
+	inline bool getWhiteDown() const noexcept;
+	inline const Game* getGame() const noexcept;
+	inline void setWhiteDown(bool wd);
+	void setGame(Game* game);
 protected slots:
 	void sPositionChanged();
 	void sGameFinished();
@@ -27,8 +30,8 @@ protected:
 	void resizeEvent(QResizeEvent* eventInfo) override;
 	void mousePressEvent(QMouseEvent* eventInfo) override;
 
-	void loadEngineOptions(UCIEngine* engine);
-	void updateEngineInfo(const EngineInfo& info);
+	/*void loadEngineOptions(UCIEngine* engine);
+	void updateEngineInfo(const EngineInfo& info);*/
 
 	int fileFromCol(int col) const;
 	int rankFromRow(int row) const;
@@ -51,7 +54,17 @@ protected:
 	bool m_whiteDown; // Whether board is viewed with first rows in the bottom
 };
 
+inline bool BoardWidget::getWhiteDown() const noexcept
+{
+	return m_whiteDown;
+}
+
 inline const Game* BoardWidget::getGame(void) const noexcept
 {
 	return m_game;
+}
+
+inline void BoardWidget::setWhiteDown(bool wd)
+{
+	m_whiteDown = wd;
 }

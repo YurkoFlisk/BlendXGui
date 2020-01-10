@@ -24,15 +24,18 @@ public:
 	inline GameType getGameType() const noexcept;
 	inline BlendXChess::Side getUserSide() const noexcept;
 	inline const BlendXChess::Game& getGame() const noexcept;
+	inline const Clock& getClock(BlendXChess::Side side) const noexcept;
 
 	// Game loop
 	//void gameLoop();
 	// Close current game
 	void closeGame();
-	// Start game of various types
-	void startPVP();
-	void startWithEngine(BlendXChess::Side userSide, UCIEngine* engine);
-	void startEngineVsEngine(UCIEngine* whiteEngine, UCIEngine* blackEngine);
+	// Prepare game of various types
+	void preparePVP();
+	void prepareWithEngine(BlendXChess::Side userSide, UCIEngine* engine);
+	void prepareEngineVsEngine(UCIEngine* whiteEngine, UCIEngine* blackEngine);
+	// Start game when all necessary conditions (eg, engines are set up) are met
+	void startGame();
 	// Undo/redo
 	void undo();
 	void redo();
@@ -43,6 +46,7 @@ public:
 signals:
 	void gameFinishedSignal();
 	void positionChangedSignal();
+	void readyToStart();
 	void engineInitSignal(const EngineInfo& engineInfo);
 	void engineErrorSignal(BlendXChess::Side side, QString errorText);
 	void searchInfoSignal(BlendXChess::Side side, const SearchInfoDetails& info);
@@ -57,10 +61,9 @@ protected:
 	void goEngine(BlendXChess::Side side);
 	// Close engine
 	/*void closeEngine(BlendXChess::Side side);*/
-	// Start game when all necessary conditions (eg, engines are set up) are met
-	void startGame();
 
 	Clock m_clock[BlendXChess::COLOR_CNT]; // Clock info for both players
+	bool m_readyForStart; // Whether game's ready for start
 	bool m_engGameStarted[BlendXChess::COLOR_CNT]; // Whether an engine finished processing ucinewgame
 	//std::condition_variable userMovedCV; // Notified when user has just moved
 	//std::mutex moveMutex; // Mutex acquired when (un-/re-)doing moves
@@ -110,4 +113,9 @@ inline BlendXChess::Side Game::getUserSide() const noexcept
 inline const BlendXChess::Game& Game::getGame() const noexcept
 {
 	return m_game;
+}
+
+inline const Clock& Game::getClock(BlendXChess::Side side) const noexcept
+{
+	return m_clock[side];
 }

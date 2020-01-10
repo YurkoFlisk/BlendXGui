@@ -29,14 +29,14 @@ public:
 	PresetsBrowser(PresetsModel* model, bool selecting = false, QWidget *parent = nullptr);
 	~PresetsBrowser();
 
-	int getCurrentIdx();
+	QString getCurrentId();
+	void setCurrentId(const QString& id);
 private slots:
 	void sSelectionChanged(const QItemSelection& selected,
 		const QItemSelection& deselected);
 	void sOk();
 	void sAdd();
 	void sRemove();
-	void sPresets();
 	// Returns whether save was successful
 	bool sSave();
 private:

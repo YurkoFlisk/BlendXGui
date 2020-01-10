@@ -42,19 +42,10 @@
     <ClCompile Include="GUI\EnginesBrowser.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="GUI\OpenDBBrowser.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="GUI\QtChessGUI.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="GUI\Dialogs\EngineParamsDialog.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="GUI\Dialogs\NewGameDialog.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="GUI\Dialogs\SaveDBBrowser.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Core\misc.cpp">
@@ -89,19 +80,10 @@
     <QtMoc Include="GUI\EnginesBrowser.h">
       <Filter>Header Files</Filter>
     </QtMoc>
-    <QtMoc Include="GUI\OpenDBBrowser.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
     <QtMoc Include="GUI\QtChessGUI.h">
       <Filter>Header Files</Filter>
     </QtMoc>
-    <QtMoc Include="GUI\Dialogs\EngineParamsDialog.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
     <QtMoc Include="GUI\Dialogs\NewGameDialog.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
-    <QtMoc Include="GUI\Dialogs\SaveDBBrowser.h">
       <Filter>Header Files</Filter>
     </QtMoc>
     <QtMoc Include="Core\EnginesModel.h">

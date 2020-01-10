@@ -14,9 +14,9 @@ UciOption uciOptionFromJSON(QJsonObject obj)
 			for (const auto& comboVar : comboVars)
 				uciOptionDef += " var " + comboVar.toString().toStdString();
 		}
-		else // toVariant() THEN toString() for number conversion (if needed)
-			uciOptionDef += " " + key.toStdString() + " "
-			+ obj[key].toVariant().toString().toStdString();
+		else
+			uciOptionDef += " " + key.toStdString() + " " + (obj[key].isDouble() ?
+				std::to_string(obj[key].toInt()) : obj[key].toVariant().toString().toStdString());
 	}
 	std::istringstream iss(uciOptionDef);
 	return UciOption(iss);
@@ -99,7 +99,7 @@ UCIEngine::UCIEngine(void)
 {}
 
 UCIEngine::UCIEngine(QString path, LaunchType launchType)
-	: m_state(State::NotSet), m_launchType(LaunchType::NotSet)
+	: UCIEngine()
 {
 	reset(path, launchType);
 }
@@ -114,7 +114,7 @@ void UCIEngine::initialize()
 	m_process.write("uci\n");
 	while (true)
 	{
-		if (!m_process.waitForReadyRead(10000))
+		if (!m_process.canReadLine() && !m_process.waitForReadyRead(10000))
 			break; // maybe throw?
 		std::string line = m_process.readLine().toStdString(), cmd, token;
 		std::istringstream iss(line);
@@ -169,7 +169,7 @@ void UCIEngine::close(void)
 			throw std::runtime_error(tr(
 				"Could not finish previous engine process, so killed it").toStdString());
 		}
-		m_state = State::NotSet;
+		/*m_state = State::NotSet;*/
 		m_launchType = LaunchType::NotSet;
 		m_info = EngineInfo();
 	}
@@ -184,15 +184,16 @@ void UCIEngine::reset(QString path, LaunchType launchType)
 			"Engine process could not have been started").toStdString());
 	
 	m_process.write("uci\n");
-	m_state = State::WaitingUciOk;
+	m_eventInfo.sender = this;
+	/*m_state = State::WaitingUciOk;*/
 	m_launchType = launchType;
 }
 
 void UCIEngine::setOptionFromString(const std::string& name, const std::string& value)
 {
-	if (m_state != State::SettingOptions)
+	/*if (m_state != State::SettingOptions)
 		throw std::runtime_error(tr(
-			"We should set options only in SettingOptions state").toStdString());
+			"We should set options only in SettingOptions state").toStdString());*/
 	writeSetOption(name, value);
 }
 
@@ -275,7 +276,7 @@ void UCIEngine::sendStop(void)
 
 void UCIEngine::doWhenReady(ReadyOkCallback rok_cb)
 {
-	m_process.write("isready");
+	m_process.write("isready\n");
 	m_readyOkCallback = rok_cb;
 }
 

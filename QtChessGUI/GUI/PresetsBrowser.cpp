@@ -105,7 +105,7 @@ PresetsBrowser::PresetsBrowser(PresetsModel* model, bool selecting, QWidget* par
 	m_presetsLayout->addWidget(m_presetsLV);
 	updatePresetPropWidget();
 
-	QPushButton* okPB = new QPushButton(selecting ? tr("Back") : tr("Select"));
+	QPushButton* okPB = new QPushButton(selecting ? tr("Select") : tr("Back"));
 	QPushButton* savePB = new QPushButton(tr("Save"));
 	QPushButton* addPB = new QPushButton(tr("Add"));
 	QPushButton* removePB = new QPushButton(tr("Remove"));
@@ -134,23 +134,36 @@ PresetsBrowser::PresetsBrowser(PresetsModel* model, bool selecting, QWidget* par
 
 PresetsBrowser::~PresetsBrowser() = default;
 
-int PresetsBrowser::getCurrentIdx()
+QString PresetsBrowser::getCurrentId()
 {
-	return m_selectedIdx;
+	if (m_selectedIdx == -1)
+		return "";
+	return (*m_presets)[m_selectedIdx].name;
+}
+
+void PresetsBrowser::setCurrentId(const QString& id)
+{
+	m_presetsLV->selectionModel()->select(m_presets->findByNameQMI(id),
+		QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
 }
 
 void PresetsBrowser::sSelectionChanged(const QItemSelection& selected,
 	const QItemSelection& deselected)
 {
+	int newIdx;
+	if (selected.empty())
+		newIdx = -1;
+	else
+		newIdx = selected.indexes().front().row();
+	if (newIdx == m_selectedIdx)
+		return;
 	if (!checkUnsaved())
 	{
-		m_presetsLV->setCurrentIndex(deselected.indexes().front());
+		if (!deselected.indexes().empty())
+			m_presetsLV->setCurrentIndex(deselected.indexes().front());
 		return;
 	}
-	if (selected.empty())
-		m_selectedIdx = -1;
-	else
-		m_selectedIdx = selected.indexes().front().row();
+	m_selectedIdx = newIdx;
 	updatePresetPropWidget();
 }
 
@@ -166,10 +179,11 @@ void PresetsBrowser::sAdd()
 	if (!checkUnsaved())
 		return;
 	int insertedIdx;
+	QString name;
 	do // Ask the name for new preset until a valid one is given
 	{
 		bool ok = false;
-		const QString name = QInputDialog::getText(this, tr("Preset name"),
+		name = QInputDialog::getText(this, tr("Preset name"),
 			tr("Preset name: "), QLineEdit::Normal, "Default", &ok);
 		if (!ok)
 			return; // Cancelled
@@ -179,7 +193,7 @@ void PresetsBrowser::sAdd()
 			break;
 		QMessageBox::warning(this, tr("Error"), tr("Preset name must be non-empty and unique"));
 	} while (true);
-	m_selectedIdx = insertedIdx;
+	m_presetsLV->setCurrentIndex(m_presets->findByNameQMI(name));
 	updatePresetPropWidget();
 }
 

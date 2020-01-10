@@ -44,6 +44,7 @@ struct EngineEvent
 		None, Error, UciOk, NewGameStarted, BestMove, Info
 	};
 
+	class UCIEngine* sender;
 	Type type;
 	SearchInfoDetails infoDetails;
 	std::string bestMove; // UCI string

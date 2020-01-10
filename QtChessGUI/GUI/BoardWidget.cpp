@@ -4,7 +4,7 @@
 
 BoardWidget::BoardWidget(Game* game, QWidget* parent)
 	: QWidget(parent), m_tileSize(64), m_whiteDown(true),
-	m_selSq(BlendXChess::Sq::NONE), m_borderWidth(30), m_game(game)
+	m_selSq(BlendXChess::Sq::NONE), m_borderWidth(30), m_game(nullptr)
 {
 	using namespace BlendXChess;
 
@@ -34,13 +34,19 @@ BoardWidget::BoardWidget(Game* game, QWidget* parent)
 	m_svgPieces[B_QUEEN].load(QString("Images/Pieces/Cburnett/blackQueen.svg"));
 	m_svgPieces[B_KING].load(QString("Images/Pieces/Cburnett/blackKing.svg"));
 
-	(void)connect(m_game, &::Game::positionChangedSignal, this, &BoardWidget::sPositionChanged);
-	(void)connect(m_game, &::Game::gameFinishedSignal, this, &BoardWidget::sGameFinished);
-
-	m_game->startPVP();
+	setGame(game);
 }
 
 BoardWidget::~BoardWidget(void) = default;
+
+void BoardWidget::setGame(Game* game)
+{
+	m_game = game;
+	if (!game)
+		return;
+	(void)connect(m_game, &::Game::positionChangedSignal, this, &BoardWidget::sPositionChanged);
+	(void)connect(m_game, &::Game::gameFinishedSignal, this, &BoardWidget::sGameFinished);
+}
 
 void BoardWidget::sPositionChanged()
 {
@@ -51,6 +57,7 @@ void BoardWidget::sGameFinished()
 {
 	using BlendXChess::GameState;
 
+	update();
 	const GameState state = m_game->getGame().getGameState();
 	QMessageBox::information(this, tr("Game result"),
 		state == GameState::WHITE_WIN ? tr("White won") :
@@ -184,21 +191,21 @@ int BoardWidget::rankFromRow(int row) const
 	return m_whiteDown ? BlendXChess::RANK_CNT - 1 - row : row;
 }
 
-void BoardWidget::loadEngineOptions(UCIEngine* engine)
-{
-	EngineParamsDialog* engineParamsDialog =
-		new EngineParamsDialog(this, engine->getOptions());
-	if (engineParamsDialog->exec() != QDialog::Accepted)
-		return;
-	for (const auto& [optName, _] : engine->getOptions())
-		engine->setOption(optName, engineParamsDialog->getOptionValue(optName));
-	engine->sendIsReady();
-}
+//void BoardWidget::loadEngineOptions(UCIEngine* engine)
+//{
+//	EngineParamsDialog* engineParamsDialog =
+//		new EngineParamsDialog(this, engine->getOptions());
+//	if (engineParamsDialog->exec() != QDialog::Accepted)
+//		return;
+//	for (const auto& [optName, _] : engine->getOptions())
+//		engine->setOption(optName, engineParamsDialog->getOptionValue(optName));
+//	engine->sendIsReady();
+//}
 
-void BoardWidget::updateEngineInfo(const EngineInfo& info)
-{
-
-}
+//void BoardWidget::updateEngineInfo(const EngineInfo& info)
+//{
+//
+//}
 
 BlendXChess::Square BoardWidget::squareByPoint(QPoint point) const
 {

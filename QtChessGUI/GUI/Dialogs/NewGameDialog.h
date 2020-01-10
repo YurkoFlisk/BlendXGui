@@ -2,9 +2,12 @@
 
 #include <QtWidgets>
 #include <QDialog>
-#include "Engine/basic_types.h"
+
+#include "Core/Game.h"
 
 class EnginePreset;
+class EnginesModel;
+class EnginesBrowser;
 class PresetsModel;
 class PresetsBrowser;
 
@@ -13,15 +16,17 @@ class PresetSelector : public QWidget
 	Q_OBJECT
 
 public:
-	PresetSelector(PresetsBrowser* browser, QWidget* parent = nullptr);
+	PresetSelector(EnginesModel* enginesModel, QWidget* parent = nullptr);
 	~PresetSelector();
 
-	inline std::string getCurrentId() const;
+	inline QString getCurrentEngineId() const;
+	inline QString getCurrentPresetId() const;
 private slots:
 	void sChange();
 private:
-	std::string m_currentId;
-	PresetsBrowser* m_browser;
+	QString m_currentEngineId;
+	QString m_currentPresetId;
+	EnginesModel* m_enginesModel;
 	QLabel* m_currentLabel;
 	QPushButton* m_browsePB;
 };
@@ -31,49 +36,47 @@ class NewGameDialog : public QDialog
 	Q_OBJECT
 
 public:
-	NewGameDialog(PresetsModel* presets, QWidget* parent = nullptr);
+	NewGameDialog(::Game::GameType gameType,
+		EnginesModel* presets = nullptr, QWidget* parent = nullptr);
 	~NewGameDialog();
 
 	BlendXChess::Side getSelectedSide() const; // Valid only for withEngine
-	std::string getSelectedPresetId() const; // Valid only for withEngine
-	std::string getSelectedWhitePresetId() const; // Valid only for engineVsEngine
-	std::string getSelectedBlackPresetId() const; // Valid only for engineVsEngine
-	void refresh();
-	inline bool pvp() const;
-	inline bool withEngine() const;
-	inline bool engineVsEngine() const;
+	
+	// Get created game. You should change its parent since by default it is child of the dialog
+	// If the dialog was accepted, game is ready to start (via startGame())
+	::Game* getGame() const;
+	//QString getSelectedPresetId() const; // Valid only for withEngine
+	//QString getSelectedWhitePresetId() const; // Valid only for engineVsEngine
+	//QString getSelectedBlackPresetId() const; // Valid only for engineVsEngine
+	inline bool timeControlOn() const;
 private slots:
-	void sTypeToggled(bool checked);
+	void sOk();
 private:
-	PresetsModel* m_presets;
-	QWidget* pvpW;
-	QWidget* withEngineW;
-	QWidget* engineVsEngineW;
+	UCIEngine* launchEngine(const QString& engineID, const QString& presetID);
+
+	::Game::GameType m_gameType;
+	::Game* m_game;
+	EnginesModel* m_engines;
+	QGroupBox* m_timeControlGB;
+	QSpinBox* m_initialSB;
+	QSpinBox* m_incrementSB;
 	QComboBox* m_sideCB;
 	PresetSelector* m_engineSelector;
 	PresetSelector* m_whiteEngineSelector;
 	PresetSelector* m_blackEngineSelector;
-	QRadioButton* m_pvp;
-	QRadioButton* m_withEngine;
-	QRadioButton* m_engineVsEngine;
 };
 
-inline std::string PresetSelector::getCurrentId() const
+inline QString PresetSelector::getCurrentEngineId() const
 {
-	return m_currentId;
+	return m_currentEngineId;
 }
 
-inline bool NewGameDialog::pvp(void) const
+inline QString PresetSelector::getCurrentPresetId() const
 {
-	return m_pvp->isChecked();
+	return m_currentPresetId;
 }
 
-inline bool NewGameDialog::withEngine(void) const
+inline bool NewGameDialog::timeControlOn() const
 {
-	return m_withEngine->isChecked();
-}
-
-inline bool NewGameDialog::engineVsEngine(void) const
-{
-	return m_engineVsEngine->isChecked();
+	return m_timeControlGB->isChecked();
 }

@@ -69,15 +69,17 @@ void Game::closeGame(void)
 	m_gameType = GameType::None;
 }
 
-void Game::startPVP(void)
+void Game::preparePVP(void)
 {
 	closeGame();
 	m_gameType = GameType::PlayerVsPlayer;
-	startGame();
+	emit readyToStart();
 }
 
-void Game::startWithEngine(BlendXChess::Side userSide, UCIEngine* engine)
+void Game::prepareWithEngine(BlendXChess::Side userSide, UCIEngine* engine)
 {
+	if (!engine)
+		return;
 	closeGame();
 	if (userSide == NULL_COLOR)
 		userSide = Side(QDateTime::currentDateTime().time().msec() & 1); // random
@@ -90,8 +92,10 @@ void Game::startWithEngine(BlendXChess::Side userSide, UCIEngine* engine)
 	engine->sendNewGame();
 }
 
-void Game::startEngineVsEngine(UCIEngine* whiteEngine, UCIEngine* blackEngine)
+void Game::prepareEngineVsEngine(UCIEngine* whiteEngine, UCIEngine* blackEngine)
 {
+	if (!whiteEngine || !blackEngine)
+		return;
 	closeGame();
 	m_gameType = GameType::EngineVsEngine;
 	m_userSide = NULL_COLOR;
@@ -178,7 +182,6 @@ void Game::loadPGN(std::istream& inGame)
 
 void Game::startGame(void)
 {
-	// TODO sendNewGame should be followed by isready-readyok as potentially long operation
 	m_game.reset();
 	if (m_gameType == GameType::PlayerVsEngine)
 	{
@@ -210,7 +213,7 @@ void Game::playerTimeout(BlendXChess::Side side)
 
 void Game::engineEventCallback(const EngineEvent* eventInfo)
 {
-	UCIEngine* const engine = dynamic_cast<UCIEngine*>(sender());
+	UCIEngine* const engine = eventInfo->sender;
 	if (engine == nullptr)
 		return; // Strange condition, should not happen. Maybe throw?
 
@@ -232,11 +235,11 @@ void Game::engineEventCallback(const EngineEvent* eventInfo)
 	case EngineEvent::Type::NewGameStarted:
 		m_engGameStarted[engineSide] = true;
 		if (m_gameType == GameType::PlayerVsEngine)
-			startGame(); // Sender could be only one engine, so start immediately
+			emit readyToStart(); // Sender could be only one engine, so ready for start immediately
 		else if (m_gameType == GameType::EngineVsEngine)
 		{ // Check that both engines finished ucinewgame before starting the game
 			if (m_engGameStarted[WHITE] && m_engGameStarted[BLACK])
-				startGame();
+				emit readyToStart();
 		}
 		break;
 	case EngineEvent::Type::BestMove:
@@ -249,6 +252,7 @@ void Game::engineEventCallback(const EngineEvent* eventInfo)
 		emit searchInfoSignal(engineSide, eventInfo->infoDetails);
 		break;
 	case EngineEvent::Type::Error:
+		closeGame();
 		emit engineErrorSignal(engineSide, QString::fromStdString(eventInfo->errorText));
 		break;
 	}

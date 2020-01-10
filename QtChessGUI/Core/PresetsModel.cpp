@@ -3,7 +3,7 @@
 
 EnginePreset EnginePreset::defaultFor(const EngineInfo& engineInfo, const QString& name)
 {
-	EnginePreset ret;
+	EnginePreset ret{ .name = name };
 	for (const auto& [name, optionInfo] : engineInfo.options)
 		ret.optionValues[name] = optionInfo.getDefault();
 	return ret;
@@ -19,11 +19,12 @@ PresetsModel::PresetsModel(const std::vector<EnginePreset>& presetsObj,
 	m_data(presetsObj)
 {}
 
-PresetsModel::PresetsModel(const QJsonArray& object,
-	EnginesModel& engines, const QString& engineName)
-	: QAbstractTableModel(&engines), m_engines(engines), m_engineName(engineName)
+PresetsModel::PresetsModel(const QJsonArray& presetsArr,
+	EnginesModel& engines, const EngineInfo& ei)
+	: QAbstractTableModel(&engines), m_engines(engines), m_engineName(ei.name)
 {
-	loadFromJSON(object);
+	// engineInfo() may not work now
+	loadFromJSON(presetsArr, ei);
 }
 
 PresetsModel::~PresetsModel() = default;
@@ -54,7 +55,7 @@ QVariant PresetsModel::data(const QModelIndex& index, int role) const
 		default: return QVariant();
 		}
 	else
-		return QAbstractTableModel::data(index, role);
+		return QVariant();
 }
 
 const EnginePreset& PresetsModel::operator[](int idx) const
@@ -105,6 +106,12 @@ int PresetsModel::findByName(const QString& name)
 	return static_cast<int>(it - m_data.begin());
 }
 
+QModelIndex PresetsModel::findByNameQMI(const QString& name)
+{
+	const int row = findByName(name);
+	return row == -1 ? QModelIndex() : index(row, 0);
+}
+
 bool PresetsModel::setPreset(int row, const EnginePreset& preset)
 {
 	if (row < 0 || m_data.size() <= row)
@@ -121,13 +128,18 @@ bool PresetsModel::setPreset(int row, const EnginePreset& preset)
 	return true;
 }
 
-void PresetsModel::loadFromJSON(const QJsonArray& presets)
+const EngineInfo* PresetsModel::engineInfo() const
+{
+	return &m_engines.getByName(m_engineName)->info;
+}
+
+void PresetsModel::loadFromJSON(const QJsonArray& presets, const EngineInfo& info)
 {	
 	for (const auto& presetRef : presets)
 	{
 		const QJsonObject presetInfo = presetRef.toObject();
 		if (!presetInfo.empty())
-			m_data.push_back(loadPresetFromJSON(presetInfo));
+			m_data.push_back(loadPresetFromJSON(presetInfo, info));
 	}
 }
 
@@ -139,27 +151,24 @@ QJsonArray PresetsModel::toJSON() const
 	return presetArr;
 }
 
-const EngineInfo* PresetsModel::engineInfo() const
-{
-	return &m_engines.getByName(m_engineName)->info;
-}
-
-EnginePreset PresetsModel::loadPresetFromJSON(QJsonObject obj)
+EnginePreset PresetsModel::loadPresetFromJSON(QJsonObject obj, const EngineInfo& info)
 {
 	EnginePreset ep;
 	ep.name = obj["name"].toString();
 
 	if (ep.name.isEmpty())
-		throw std::runtime_error(QObject::tr(
+		throw std::runtime_error(tr(
 			"Invalid or missing preset name").toStdString());
 
 	const QJsonObject optionMap = obj["optionValues"].toObject();
 	for (const auto& optionName : optionMap.keys())
 	{
-		const std::string& optionStrS = optionMap[optionName].toVariant().toString().toStdString();
+		const auto& optionV = optionMap[optionName];
+		const std::string& optionStrS = optionV.isDouble()
+			? std::to_string(optionV.toInt()) : optionV.toVariant().toString().toStdString();
 		const std::string& optionNameS = optionName.toStdString();
 		if (!ep.optionValues.emplace(optionNameS,
-			engineInfo()->options.at(optionNameS).parseValue(optionStrS)).second)
+			info.options.at(optionNameS).parseValue(optionStrS)).second)
 			throw std::runtime_error(tr(
 				"Option name appeared twice in preset definition").toStdString());
 	}

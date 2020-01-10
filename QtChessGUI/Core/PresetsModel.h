@@ -33,8 +33,10 @@ public:
 	PresetsModel(EnginesModel& engines, const QString& engineName);
 	PresetsModel(const std::vector<EnginePreset>& presetsObj,
 		EnginesModel& engines, const QString& engineName);
-	PresetsModel(const QJsonArray& presetsObj,
-		EnginesModel& engines, const QString& engineName);
+	// EngineInfo reference is not remembered, only engine ID, but
+	// ei is used for reading options during JSON parsing
+	PresetsModel(const QJsonArray& presetsArr,
+		EnginesModel& engines, const EngineInfo& ei);
 	~PresetsModel();
 
 	// QAbstractTableModel
@@ -54,14 +56,16 @@ public:
 	bool eraseRow(int row);
 	// Finds preset by name and returns its index or -1 in case of absence
 	int findByName(const QString& name);
+	// Finds preset by name and returns QModelIndex
+	QModelIndex findByNameQMI(const QString& name);
 	// Sets given row data to given preset (must have unique name)
 	// Returns whether there was an error
 	bool setPreset(int row, const EnginePreset& preset);
 
-	void loadFromJSON(const QJsonArray& object);
+	void loadFromJSON(const QJsonArray& object, const EngineInfo& info);
 	QJsonArray toJSON() const;
 private:
-	EnginePreset loadPresetFromJSON(QJsonObject obj);
+	EnginePreset loadPresetFromJSON(QJsonObject obj, const EngineInfo& info);
 	QJsonObject presetToJSON(const EnginePreset& preset) const;
 
 	std::vector<EnginePreset> m_data;

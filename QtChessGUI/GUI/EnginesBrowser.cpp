@@ -8,7 +8,7 @@ EnginesBrowser::EnginesBrowser(EnginesModel* model, bool selecting, QWidget* par
 	m_enginesLV = new QListView;
 	m_enginesLV->setModel(m_engines);
 	m_enginesLV->setAlternatingRowColors(true);
-	connect(m_enginesLV->selectionModel(), &QItemSelectionModel::selectionChanged,
+	(void)connect(m_enginesLV->selectionModel(), &QItemSelectionModel::selectionChanged,
 		this, &EnginesBrowser::sSelectionChanged);
 
 	m_nothingSelLabel = new QLabel(tr("Select engine to edit"));
@@ -18,6 +18,7 @@ EnginesBrowser::EnginesBrowser(EnginesModel* model, bool selecting, QWidget* par
 	m_authorLE = new QLineEdit;
 	m_pathLE = new QLineEdit;
 	m_browsePathPB = new QPushButton(tr("Browse..."));
+	m_enginePropWidget = new QWidget;
 	m_pathLE->setReadOnly(true);
 	QHBoxLayout* pathLayout = new QHBoxLayout;
 	pathLayout->addWidget(m_pathLE);
@@ -27,38 +28,44 @@ EnginesBrowser::EnginesBrowser(EnginesModel* model, bool selecting, QWidget* par
 	formLayout->addRow(tr("Author"), m_authorLE);
 	formLayout->addRow(tr("Path"), pathLayout);
 	m_enginePropWidget->setLayout(formLayout);
-	connect(m_browsePathPB, &QPushButton::clicked, this, &EnginesBrowser::sBrowsePath);
+	(void)connect(m_browsePathPB, &QPushButton::clicked, this, &EnginesBrowser::sBrowsePath);
+
+	QHBoxLayout* m_presetSelLayout = new QHBoxLayout;
+	m_selectedPresetLabel = new QLabel;
+	if (selecting)
+		m_presetSelLayout->addWidget(m_selectedPresetLabel);
+	m_presetsPB = new QPushButton(tr("Presets"));
+	m_presetSelLayout->addWidget(m_presetsPB);
 
 	QVBoxLayout* enginePropLayout = new QVBoxLayout;
 	enginePropLayout->addWidget(m_nothingSelLabel);
 	enginePropLayout->addWidget(m_enginePropWidget);
+	enginePropLayout->addLayout(m_presetSelLayout);
 
 	QHBoxLayout* enginesLayout = new QHBoxLayout;
 	enginesLayout->addWidget(m_enginesLV);
 	enginesLayout->addLayout(enginePropLayout);
 
-	QVBoxLayout* buttonsLayout = new QVBoxLayout;
-	QPushButton* okPB = new QPushButton(selecting ? tr("Back") : tr("Select"));
+	QHBoxLayout* buttonsLayout = new QHBoxLayout;
+	QPushButton* okPB = new QPushButton(selecting ? tr("Select") : tr("Back"));
 	QPushButton* savePB = new QPushButton(tr("Save"));
 	QPushButton* addPB = new QPushButton(tr("Add"));
 	QPushButton* removePB = new QPushButton(tr("Remove"));
-	m_presetsPB = new QPushButton(tr("Presets"));
 	buttonsLayout->addWidget(addPB);
 	buttonsLayout->addWidget(removePB);
 	buttonsLayout->addWidget(savePB);
-	buttonsLayout->addWidget(m_browsePathPB);
 	buttonsLayout->addStretch();
 	buttonsLayout->addWidget(okPB);
-	connect(okPB, &QPushButton::pressed, this, &EnginesBrowser::sOk);
-	connect(savePB, &QPushButton::pressed, this, &EnginesBrowser::sSave);
-	connect(addPB, &QPushButton::pressed, this, &EnginesBrowser::sAdd);
-	connect(removePB, &QPushButton::pressed, this, &EnginesBrowser::sRemove);
-	connect(m_presetsPB, &QPushButton::pressed, this, &EnginesBrowser::sPresets);
+	(void)connect(okPB, &QPushButton::pressed, this, &EnginesBrowser::sOk);
+	(void)connect(savePB, &QPushButton::pressed, this, &EnginesBrowser::sSave);
+	(void)connect(addPB, &QPushButton::pressed, this, &EnginesBrowser::sAdd);
+	(void)connect(removePB, &QPushButton::pressed, this, &EnginesBrowser::sRemove);
+	(void)connect(m_presetsPB, &QPushButton::pressed, this, &EnginesBrowser::sPresets);
 	if (selecting)
 	{
 		QPushButton* cancelPB = new QPushButton(tr("Cancel"));
 		buttonsLayout->addWidget(cancelPB);
-		connect(cancelPB, &QPushButton::pressed, this, &QDialog::reject);
+		(void)connect(cancelPB, &QPushButton::pressed, this, &QDialog::reject);
 	}
 
 	QVBoxLayout* mainLayout = new QVBoxLayout;
@@ -71,9 +78,35 @@ EnginesBrowser::EnginesBrowser(EnginesModel* model, bool selecting, QWidget* par
 
 EnginesBrowser::~EnginesBrowser() = default;
 
-int EnginesBrowser::getCurrentIdx()
+QString EnginesBrowser::getCurrentId()
 {
-	return m_selectedIdx;
+	if (m_selectedIdx == -1)
+		return "";
+	return curEngine()->name;
+}
+
+void EnginesBrowser::setCurrentId(const QString& id)
+{
+	m_enginesLV->selectionModel()->select(m_engines->findByNameQMI(id),
+		QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+}
+
+QString EnginesBrowser::getCurrentPresetId()
+{
+	return m_selectedPresetId;
+}
+
+void EnginesBrowser::setCurrentPresetId(const QString& id)
+{
+	m_selectedPresetId = id;
+	EnginePreset* const preset = curPreset();
+	if (preset == nullptr)
+	{
+		m_selectedPresetId = "";
+		m_selectedPresetLabel->setText(tr("Selected preset: none"));
+	}
+	else
+		m_selectedPresetLabel->setText(tr("Selected preset: %1").arg(preset->name));
 }
 
 bool EnginesBrowser::checkUnsaved()
@@ -107,17 +140,21 @@ void EnginesBrowser::updateEnginePropWidget()
 {
 	if (m_selectedIdx == -1)
 	{
+		setCurrentPresetId("");
+
 		m_enginePropWidget->hide();
 		m_nothingSelLabel->show();
-		m_loadedOptions.clear();
+		m_loadedInfo = EngineInfo();
 	}
 	else
 	{
-		const EngineInfo& engineInfo = (*m_engines)[m_selectedIdx].info;
+		const EngineInfo& engineInfo = *curEngine();
 		m_nameLE->setText(engineInfo.name);
 		m_authorLE->setText(engineInfo.author);
 		m_pathLE->setText(engineInfo.path);
-		m_loadedOptions = engineInfo.options;
+		m_loadedInfo = engineInfo;
+
+		setCurrentPresetId("Default");
 
 		m_nothingSelLabel->hide();
 		m_enginePropWidget->show();
@@ -126,12 +163,10 @@ void EnginesBrowser::updateEnginePropWidget()
 
 EngineInfo EnginesBrowser::getNewEngineInfo()
 {
-	EngineInfo ret;
-	ret.name = m_nameLE->text();
-	ret.author = m_authorLE->text();
-	ret.path = m_pathLE->text();
-	ret.options = m_loadedOptions;
-	return ret;
+	m_loadedInfo.name = m_nameLE->text();
+	m_loadedInfo.author = m_authorLE->text();
+	m_loadedInfo.path = m_pathLE->text();
+	return m_loadedInfo;
 }
 
 bool EnginesBrowser::checkValues(void)
@@ -145,18 +180,48 @@ bool EnginesBrowser::checkValues(void)
 	return false;
 }
 
+PresetsModel* EnginesBrowser::curEnginePresets()
+{
+	if (m_selectedIdx == -1)
+		return nullptr;
+	return (*m_engines)[m_selectedIdx].presets;
+}
+
+EngineInfo* EnginesBrowser::curEngine()
+{
+	if (m_selectedIdx == -1)
+		return nullptr;
+	return &(*m_engines)[m_selectedIdx].info;
+}
+
+EnginePreset* EnginesBrowser::curPreset()
+{
+	PresetsModel* const presets = curEnginePresets();
+	if (presets == nullptr)
+		return nullptr;
+	const int idx = presets->findByName(m_selectedPresetId);
+	if (idx == -1)
+		return nullptr;
+	return &(*presets)[idx];
+}
+
 void EnginesBrowser::sSelectionChanged(const QItemSelection& selected,
 	const QItemSelection& deselected)
 {
+	int newIdx;
+	if (selected.empty())
+		newIdx = -1;
+	else
+		newIdx = selected.indexes().front().row();
+	if (newIdx == m_selectedIdx)
+		return;
 	if (!checkUnsaved())
 	{
-		m_enginesLV->setCurrentIndex(deselected.indexes().front());
+		if (!deselected.indexes().empty())
+			m_enginesLV->setCurrentIndex(deselected.indexes().front());
 		return;
 	}
-	if (selected.empty())
-		m_selectedIdx = -1;
-	else
-		m_selectedIdx = selected.indexes().front().row();
+	m_selectedIdx = newIdx;
 	updateEnginePropWidget();
 }
 
@@ -170,7 +235,7 @@ void EnginesBrowser::sBrowsePath(void)
 	UCIEngine uciEng(path, UCIEngine::LaunchType::Info);
 	uciEng.initialize();
 	const EngineInfo& uciInfo = uciEng.getEngineInfo();
-
+	QString m_nameLEText = uciInfo.uciname, m_quthorLEText = m_authorLE->text();
 	if (m_nameLE->text() != uciInfo.uciname || m_authorLE->text() != uciInfo.author)
 	{
 		auto res = QMessageBox::question(this, tr("Naming"), tr(
@@ -187,7 +252,7 @@ void EnginesBrowser::sBrowsePath(void)
 	}
 
 	m_pathLE->setText(path);
-	m_loadedOptions = uciInfo.options;
+	m_loadedInfo = uciInfo;
 }
 
 void EnginesBrowser::sOk()
@@ -215,6 +280,7 @@ void EnginesBrowser::sAdd(void)
 	info.name = info.uciname = uciInfo.uciname;
 	info.author = uciInfo.author;
 	info.path = path;
+	info.options = uciInfo.options;
 
 	int insertedIdx;
 	do // Ask the name for new preset until a valid one is given
@@ -222,13 +288,14 @@ void EnginesBrowser::sAdd(void)
 		bool ok = false;
 		const QString name = QInputDialog::getText(this, tr("Engine name"),
 			tr("Engine name: "), QLineEdit::Normal, info.uciname, &ok);
+		info.name = name;
 		if (!ok)
 			return; // Cancelled
 		if ((insertedIdx = m_engines->addRow(info)) != -1)
 			break;
 		QMessageBox::warning(this, tr("Error"), tr("Engine name must be non-empty and unique"));
 	} while (true);
-	m_selectedIdx = insertedIdx;
+	m_enginesLV->setCurrentIndex(m_engines->findByNameQMI(info.name));
 	updateEnginePropWidget();
 }
 
@@ -246,15 +313,17 @@ void EnginesBrowser::sPresets()
 {
 	if (m_selectedIdx == -1)
 		return;
-	PresetsBrowser presetsBrowser((*m_engines)[m_selectedIdx].presets, false, this);
-	presetsBrowser.exec();
+	PresetsBrowser presetsBrowser(curEnginePresets(), m_selecting, this);
+	presetsBrowser.setCurrentId(m_selectedPresetId);
+	if (presetsBrowser.exec() == QDialog::Accepted && m_selecting)
+		setCurrentPresetId(presetsBrowser.getCurrentId());
 }
 
 bool EnginesBrowser::sSave()
 {
 	if (m_selectedIdx == -1 || !checkValues())
 		return false;
-	if ((*m_engines)[m_selectedIdx].info.options != m_loadedOptions)
+	if (curEngine()->options != m_loadedInfo.options)
 	{
 		auto res = QMessageBox::question(this, tr("Options"), tr(
 			"UCI Engine option set is not equal to the current option set for this record.\n"

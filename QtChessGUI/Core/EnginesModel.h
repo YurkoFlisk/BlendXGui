@@ -40,6 +40,8 @@ public:
 	// Sets given row data to given engine info (must have unique name)
 	// Returns whether there was an error
 	bool setEngine(int row, const EngineInfo& info);
+	// Finds engine by name and returns QModelIndex
+	QModelIndex findByNameQMI(const QString& name);
 
 	// void loadFromSQLite();
 	void loadFromJSON(const QString& path);

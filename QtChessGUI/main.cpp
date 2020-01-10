@@ -1,5 +1,6 @@
 #include "GUI/QtChessGUI.h"
 #include <QtWidgets/QApplication>
+#include <QFile>
 
 int main(int argc, char *argv[])
 {

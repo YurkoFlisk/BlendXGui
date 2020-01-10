@@ -1,0 +1,59 @@
+[
+    {
+        "info": {
+            "author": "Yurko Prokopets",
+            "cachedOptions": [
+                {
+                    "default": "5000",
+                    "max": 1000000,
+                    "min": 100,
+                    "name": "TimeLimit",
+                    "type": "spin"
+                },
+                {
+                    "default": "4",
+                    "max": 4,
+                    "min": 1,
+                    "name": "ThreadCount",
+                    "type": "spin"
+                },
+                {
+                    "default": "10",
+                    "max": 60,
+                    "min": 1,
+                    "name": "SearchDepth",
+                    "type": "spin"
+                }
+            ],
+            "name": "BlendX 0.1",
+            "path": "E:/Programing/C++/ChessEngine/BlendXChess/x64/Release/UCI.exe",
+            "uciname": "BlendX 0.1"
+        },
+        "presets": [
+            {
+                "name": "Default",
+                "optionValues": {
+                    "SearchDepth": "10",
+                    "ThreadCount": "4",
+                    "TimeLimit": "5000"
+                }
+            },
+            {
+                "name": "Single",
+                "optionValues": {
+                    "SearchDepth": "10",
+                    "ThreadCount": "1",
+                    "TimeLimit": "5000"
+                }
+            },
+            {
+                "name": "Double",
+                "optionValues": {
+                    "SearchDepth": "10",
+                    "ThreadCount": "2",
+                    "TimeLimit": "5000"
+                }
+            }
+        ]
+    }
+]

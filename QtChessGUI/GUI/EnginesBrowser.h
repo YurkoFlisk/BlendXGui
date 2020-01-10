@@ -3,6 +3,7 @@
 #include <QDialog>
 #include "Core/EnginesModel.h"
 
+class EnginePreset;
 class QLabel;
 class QLineEdit;
 class QListView;
@@ -17,7 +18,10 @@ public:
 	EnginesBrowser(EnginesModel* model, bool selecting = false, QWidget* parent = nullptr);
 	~EnginesBrowser();
 
-	int getCurrentIdx();
+	QString getCurrentId();
+	void setCurrentId(const QString& id);
+	QString getCurrentPresetId();
+	void setCurrentPresetId(const QString& id);
 private slots:
 	void sSelectionChanged(const QItemSelection& selected,
 		const QItemSelection& deselected);
@@ -41,10 +45,17 @@ private:
 	EngineInfo getNewEngineInfo();
 	// Checks values in edits for validity
 	bool checkValues(void);
+	// Presets of current engine
+	PresetsModel* curEnginePresets();
+	// Current engine
+	EngineInfo* curEngine();
+	// Current preset
+	EnginePreset* curPreset();
 
 	bool m_selecting;
 	int m_selectedIdx;
-	EngineOptions m_loadedOptions;
+	QString m_selectedPresetId;
+	EngineInfo m_loadedInfo;
 	EnginesModel* m_engines;
 	QLineEdit* m_nameLE;
 	QLineEdit* m_authorLE;
@@ -53,5 +64,6 @@ private:
 	QPushButton* m_browsePathPB;
 	QListView* m_enginesLV;
 	QLabel* m_nothingSelLabel;
+	QLabel* m_selectedPresetLabel;
 	QWidget* m_enginePropWidget;
 };

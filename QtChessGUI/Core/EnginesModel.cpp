@@ -34,9 +34,10 @@ QVariant EnginesModel::data(const QModelIndex& index, int role) const
 		case 0: return engine.info.name;
 		case 1: return engine.info.author;
 		case 2: return engine.info.path;
+		default: return QVariant();
 		}
 	else
-		return QAbstractTableModel::data(index, role);
+		return QVariant();
 }
 
 int EnginesModel::addRow(const EngineInfo& info)
@@ -90,6 +91,12 @@ bool EnginesModel::setEngine(int row, const EngineInfo& info)
 	return true;
 }
 
+QModelIndex EnginesModel::findByNameQMI(const QString& name)
+{
+	Item* item = getByName(name);
+	return item == nullptr ? QModelIndex() : index(item - &m_data[0], 0);
+}
+
 void EnginesModel::loadFromJSON(const QString& path)
 {
 	QFile file(path);
@@ -110,7 +117,7 @@ void EnginesModel::loadFromJSON(const QString& path)
 				continue;
 			const EngineInfo engineInfo = EngineInfo::fromJSON(infoObj);
 			m_data.emplace_back(engineInfo,
-				new PresetsModel(presetsArr, *this, engineInfo.name));
+				new PresetsModel(presetsArr, *this, engineInfo));
 		}
 	}
 }
@@ -147,8 +154,8 @@ EnginesModel::Item& EnginesModel::operator[](int idx)
 const EnginesModel::Item* EnginesModel::getByName(const QString& name) const
 {
 	const auto it = std::find_if(m_data.begin(), m_data.end(),
-		[&name](const EngineInfo& ei) {
-			return ei.name == name;
+		[&name](const Item& item) {
+			return item.info.name == name;
 		});
 	if (it == m_data.end())
 		return nullptr;
