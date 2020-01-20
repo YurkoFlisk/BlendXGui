@@ -2,6 +2,8 @@
 #include "misc.h"
 #include <sstream>
 
+namespace BXC = BlendXChess;
+
 UciOption uciOptionFromJSON(QJsonObject obj)
 {
 	// We use UciOption's ability to read UCI-style definition of an option
@@ -290,7 +292,52 @@ void UCIEngine::readBestmove(std::istream& iss)
 
 void UCIEngine::readInfo(std::istream& iss)
 {
-	// TEMPORARILY EMPTY
+	std::string line;
+	getline(iss, line);
+	std::istringstream infoss(line);
+	auto& info = m_eventInfo.infoDetails;
+	std::string infoType, scoreType;
+	bool innerInfoType = false;
+	while (innerInfoType || infoss >> infoType)
+	{
+		innerInfoType = false;
+		if (infoType == "depth")
+			infoss >> info.depth;
+		else if (infoType == "nps")
+			infoss >> info.nps;
+		else if (infoType == "move" || infoType == "pv") // TEMPORARY
+			infoss >> info.moveStr;
+		else if (infoType == "score")
+		{
+			info.scoreBound = BXC::BOUND_EXACT;
+			while (infoss >> scoreType)
+			{
+				if (scoreType == "lowerbound")
+					info.scoreBound = BXC::BOUND_LOWER;
+				else if (scoreType == "upperbound")
+					info.scoreBound = BXC::BOUND_UPPER;
+				else if (scoreType == "cp") [[likely]]
+				{
+					infoss >> info.score;
+					info.scoreType = SearchInfoDetails::ScoreType::Cp;
+				}
+				else if (scoreType == "mate")
+				{
+					infoss >> info.score;
+					info.scoreType == SearchInfoDetails::ScoreType::Mate;
+				}
+				else
+					break;
+			}
+			// Because the infoType was read in the inner loop,
+			// we must now avoid reading it in outer loop condition
+			infoType = scoreType;
+			innerInfoType = true;
+		}
+		else
+			throw std::runtime_error(tr("Invalid search info specification:"
+				"unknown token %1").arg(QString::fromStdString(infoType)).toStdString());
+	}
 }
 
 void UCIEngine::writeSetOption(const std::string& name, const std::string& value)
@@ -315,6 +362,7 @@ void UCIEngine::sProcessInput(void)
 		std::string line = m_process.readLine().toStdString(), cmd;
 		std::istringstream iss(line);
 		iss >> cmd;
+		m_eventInfo.errorText = "";
 		//if (cmd == "uciok")
 		//{
 		//	if (m_state != State::WaitingUciOk)
@@ -367,9 +415,14 @@ void UCIEngine::sProcessInput(void)
 		}
 		else if (cmd == "info")
 		{
-			readInfo(iss);
-			getline(iss, m_eventInfo.errorText); // TEMPORARY
-			m_eventInfo.errorText = misc::trim(m_eventInfo.errorText);
+			try
+			{
+				readInfo(iss);
+			}
+			catch (const std::runtime_error& err)
+			{
+				m_eventInfo.errorText = err.what();
+			}
 			m_eventInfo.type = EngineEvent::Type::Info;
 			emit engineSignal(&m_eventInfo);
 		}

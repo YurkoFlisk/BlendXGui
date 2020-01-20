@@ -29,13 +29,16 @@ struct EngineInfo
 struct SearchInfoDetails
 {
 	enum class ScoreType {
-		Cp, Mate, LowerBound, UpperBound
+		Cp, Mate
 	};
 
 	int depth;
 	int score;
+	int nps;
 	ScoreType scoreType;
 	BlendXChess::Move move;
+	BlendXChess::Bound scoreBound;
+	std::string moveStr;
 };
 
 struct EngineEvent

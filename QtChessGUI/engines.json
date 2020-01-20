@@ -11,8 +11,8 @@
                     "type": "spin"
                 },
                 {
-                    "default": "4",
-                    "max": 4,
+                    "default": "16",
+                    "max": 16,
                     "min": 1,
                     "name": "ThreadCount",
                     "type": "spin"
@@ -26,7 +26,7 @@
                 }
             ],
             "name": "BlendX 0.1",
-            "path": "E:/Programing/C++/ChessEngine/BlendXChess/x64/Release/UCI.exe",
+            "path": "C:/Programming/C++/BlendXChess/x64/Release/UCI.exe",
             "uciname": "BlendX 0.1"
         },
         "presets": [
@@ -34,7 +34,7 @@
                 "name": "Default",
                 "optionValues": {
                     "SearchDepth": "10",
-                    "ThreadCount": "4",
+                    "ThreadCount": "16",
                     "TimeLimit": "5000"
                 }
             },
@@ -43,14 +43,6 @@
                 "optionValues": {
                     "SearchDepth": "10",
                     "ThreadCount": "1",
-                    "TimeLimit": "5000"
-                }
-            },
-            {
-                "name": "Double",
-                "optionValues": {
-                    "SearchDepth": "10",
-                    "ThreadCount": "2",
                     "TimeLimit": "5000"
                 }
             }
